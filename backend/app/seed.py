@@ -486,7 +486,7 @@ def _ensure_users(db: Session) -> None:
             User(
                 name="Vendedor",
                 email="vendedor@elperfumistarubio.com",
-                password_hash=hash_password("Vendedor2026!"),
+                password_hash=hash_password(settings.seller_password),
                 role=Role.vendedor,
             )
         )

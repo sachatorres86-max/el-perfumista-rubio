@@ -31,7 +31,7 @@ TestingSession = sessionmaker(
 ADMIN_EMAIL = settings.admin_email
 ADMIN_PASSWORD = settings.admin_password
 SELLER_EMAIL = "vendedor@elperfumistarubio.com"
-SELLER_PASSWORD = "Vendedor2026!"
+SELLER_PASSWORD = settings.seller_password
 
 
 @pytest.fixture(autouse=True)

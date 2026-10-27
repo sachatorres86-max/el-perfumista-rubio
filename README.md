@@ -31,14 +31,13 @@ presentaciones, insumos, stock y reportes.
 | Documentación de la API | <http://127.0.0.1:8000/docs> |
 | Salud del servicio | <http://127.0.0.1:8000/api/health> |
 
-### Credenciales iniciales
+### Cuentas iniciales
 
-| Rol | Correo | Contraseña |
-| --- | --- | --- |
-| Administrador | `admin@elperfumistarubio.com` | `Perfumista2026!` |
-| Vendedor | `vendedor@elperfumistarubio.com` | `Vendedor2026!` |
-
-> Cambia estas contraseñas antes de publicar el sitio en internet.
+En el primer arranque se crean las cuentas configuradas en `backend\.env`:
+`ADMIN_EMAIL` / `ADMIN_PASSWORD` para el administrador y
+`vendedor@elperfumistarubio.com` / `SELLER_PASSWORD` para el vendedor. Define
+claves propias antes de iniciar la aplicación. La semilla no cambia la clave de
+una cuenta que ya exista.
 
 ---
 
@@ -85,8 +84,8 @@ el-perfumista-rubio/
 ├─ scripts/
 │  └─ rebuild-frontend.bat   Recompila la interfaz React
 ├─ backend/
-│  ├─ .venv/                 Entorno virtual de Python
-│  ├─ .env                   Configuración local (BD, secretos, admin)
+│  ├─ .env.example           Plantilla de configuración (versionada)
+│  ├─ .env                   Configuración local (ignorada por Git)
 │  ├─ requirements.txt
 │  ├─ app/
 │  │  ├─ main.py             Aplicación FastAPI y servido del frontend
@@ -102,8 +101,8 @@ el-perfumista-rubio/
 ├─ frontend/
 │  ├─ src/                   Código React + TypeScript
 │  ├─ public/                Logo, iconos PWA y portada
-│  └─ dist/                  Compilación servida por FastAPI
-└─ docs/                     Documentación adicional
+│  ├─ package-lock.json
+│  └─ dist/                  Compilación local (ignorada por Git)
 ```
 
 ---
@@ -111,44 +110,55 @@ el-perfumista-rubio/
 ## 4. Requisitos del equipo
 
 - Windows 10/11
-- PostgreSQL 16 en el puerto **5433**
-- Python 3.12 (entorno virtual ya creado en `backend\.venv`)
-- Node.js 20+ (solo para recompilar la interfaz)
-
-Base de datos creada:
-
-- Servidor: `127.0.0.1:5433`
-- Base de datos: `perfumista`
-- Usuario: `perfumista`
-- Contraseña: `Perfumista2026`
-
-> El puerto **5432** pertenece a otra instalación de PostgreSQL en este equipo.
-> No lo uses para este proyecto.
+- PostgreSQL 16 (el ejemplo usa `127.0.0.1:5433`; ajusta el puerto si tu
+  instalación usa otro)
+- Python 3.12
+- Node.js 20+ y npm (necesarios para instalar y compilar el frontend)
 
 ---
 
 ## 5. Instalación desde cero
 
-Solo es necesario si se mueve el proyecto a otro computador.
+Estos pasos aplican a un clon nuevo o a una instalación en otro computador.
+Los entornos virtuales, `node_modules`, `dist` y `.env` se excluyen del
+repositorio mediante `.gitignore`, así que deben prepararse localmente.
 
 ```powershell
-# 1. Base de datos (con PostgreSQL 16 instalado)
-& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -p 5433 -c "CREATE ROLE perfumista LOGIN PASSWORD 'Perfumista2026';"
+# 1. Inicia PostgreSQL y crea un usuario y una base vacía.
+# Ejecuta estos comandos con una cuenta administradora de PostgreSQL.
+# Reemplaza la contraseña de ejemplo por una propia.
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -p 5433 -c "CREATE ROLE perfumista LOGIN PASSWORD 'CAMBIA_ESTA_CLAVE';"
 & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -p 5433 -c "CREATE DATABASE perfumista OWNER perfumista;"
 
-# 2. Backend
-cd backend
+# 2. Configura el backend. El archivo real .env no se versiona.
+Copy-Item backend\.env.example backend\.env
+notepad backend\.env
+# En backend\.env configura DATABASE_URL con la misma clave del usuario
+# de PostgreSQL y define SECRET_KEY, ADMIN_PASSWORD y SELLER_PASSWORD propios.
+
+# 3. Instala las dependencias del backend
+Set-Location backend
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-# 3. Frontend
-cd ..\frontend
+# 4. Instala y compila el frontend (dist no está incluido en Git)
+Set-Location ..\frontend
 npm.cmd install
 npm.cmd run build
+
+# 5. Vuelve a la raíz y arranca la aplicación
+Set-Location ..
+.\start.bat
 ```
 
-Al iniciar el backend, las tablas y los datos demo se crean automáticamente
-(`AUTO_INIT_DB=true`). El proceso es idempotente: no duplica información.
+Con `AUTO_INIT_DB=true`, en el primer arranque el backend crea las tablas que
+faltan y carga los datos de demostración definidos en `backend\app\seed.py`
+(catálogo, insumos, configuración y cuentas iniciales). La base y el usuario de
+PostgreSQL deben existir y ser accesibles con `DATABASE_URL`; la aplicación no
+crea el servidor, el usuario ni la base de datos. La inicialización no reemplaza
+datos existentes. `create_all` crea tablas ausentes, pero no migra ni modifica
+tablas existentes cuando cambia el modelo; para esos cambios se requiere una
+migración planificada.
 
 ---
 
@@ -166,7 +176,13 @@ Archivo `backend\.env`:
 | `MEDIA_DIR` | Carpeta de imágenes |
 | `FRONTEND_DIST` | Compilación de React que sirve FastAPI |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Administrador creado en el primer arranque |
+| `SELLER_PASSWORD` | Clave de la cuenta vendedora creada en el primer arranque |
 | `AUTO_INIT_DB` | Crea tablas y datos demo al iniciar |
+
+`backend\.env.example` contiene valores de ejemplo, no credenciales listas para
+usar. Copia el archivo a `backend\.env`, cambia las claves y no compartas ni
+versiones el `.env`. Si una contraseña de PostgreSQL contiene caracteres
+reservados en una URL, codifícalos para URL en `DATABASE_URL`.
 
 Los datos de contacto, horarios y textos también se editan desde
 **Panel → Configuración**, sin tocar archivos.
@@ -228,7 +244,7 @@ La interfaz de desarrollo queda en <http://localhost:5173> y redirige `/api` y
 | El puerto 8000 está ocupado | Ejecuta `stop.bat` o cierra el proceso con `Get-NetTCPConnection -LocalPort 8000`. |
 | `npm` no se ejecuta en PowerShell | Usa `npm.cmd` o el script `scripts\rebuild-frontend.bat`. |
 | Cambios en el diseño no aparecen | Recompila y reinicia; el navegador puede conservar la PWA en caché (recarga forzada con `Ctrl + F5`). |
-| No recuerdo la contraseña del administrador | Restablécela desde Python con `hash_password` o vuelve a crear el usuario en la base. |
+| No recuerdo la contraseña de una cuenta | `ADMIN_PASSWORD` y `SELLER_PASSWORD` solo se aplican al crear las cuentas. La semilla no restablece claves de usuarios existentes; no hay recuperación de contraseña desde la interfaz. |
 
 ---
 

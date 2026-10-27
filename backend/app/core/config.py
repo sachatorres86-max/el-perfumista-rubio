@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     admin_name: str = "Administrador"
     admin_email: str = "admin@elperfumistarubio.com"
     admin_password: str = "Perfumista2026!"
+    seller_password: str = "Vendedor2026!"
     auto_init_db: bool = True
 
     model_config = SettingsConfigDict(
