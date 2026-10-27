@@ -299,12 +299,6 @@ class PresentationOption(BaseModel):
     volume_ml: int
 
 
-class BulkPriceIn(BaseModel):
-    percentage: float = Field(gt=-100, lt=1000)
-    family_id: int | None = None
-    product_type: ProductType | None = None
-
-
 class SettingsIn(BaseModel):
     business_name: str | None = Field(default=None, max_length=120)
     whatsapp_primary: str | None = Field(default=None, max_length=40)

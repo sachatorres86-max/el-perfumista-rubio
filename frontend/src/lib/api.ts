@@ -149,11 +149,6 @@ export const api = {
       }),
     presentationOptions: (q?: string) =>
       request<PresentationOption[]>(`/admin/productos/presentaciones/opciones${queryString({ q })}`),
-    bulkPrices: (data: { percentage: number; family_id?: number; product_type?: string }) =>
-      request<{ message: string }>('/admin/productos/precios/masivo', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
 
     supplies: (params: {
       q?: string

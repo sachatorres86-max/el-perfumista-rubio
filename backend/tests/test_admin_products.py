@@ -183,30 +183,9 @@ def test_presentation_options(admin_client: TestClient) -> None:
     )
 
 
-def test_bulk_price_update(admin_client: TestClient) -> None:
-    created = admin_client.post(
-        "/api/admin/productos",
-        json=_payload(
-            sku="TST-0010",
-            presentations=[
-                {
-                    "volume_ml": 100,
-                    "bottle_type": "Vidrio",
-                    "price_cop": 100000,
-                    "stock": 1,
-                    "min_stock": 0,
-                    "active": True,
-                }
-            ],
-        ),
-    ).json()
-
+def test_bulk_price_endpoint_removed(admin_client: TestClient) -> None:
     response = admin_client.post("/api/admin/productos/precios/masivo", json={"percentage": 10})
-    assert response.status_code == 200
-    assert response.json()["detail"]["updated"] >= 1
-
-    refreshed = admin_client.get(f"/api/admin/productos/{created['id']}").json()
-    assert refreshed["price_min"] == 110000
+    assert response.status_code == 405
 
 
 def test_image_upload_and_delete(admin_client: TestClient) -> None:

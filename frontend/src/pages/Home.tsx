@@ -50,7 +50,7 @@ export function Home() {
   const [query, setQuery] = useState('')
 
   useDocumentTitle(
-    'El Perfumista Rubio | Perfumería en San Martín',
+    'El Perfumista Rubio',
     'Catálogo de perfumes, esencias y cuidado personal. Consulta disponibilidad y recibe asesoría por WhatsApp.',
   )
 
@@ -89,7 +89,7 @@ export function Home() {
           <div className="fade-up">
             <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-brand-300">
               <span className="h-px w-10 bg-brand-400/70" />
-              Perfumería artesanal · San Martín
+              Perfumería artesanal
             </p>
 
             <h1 className="mt-6 max-w-2xl text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">

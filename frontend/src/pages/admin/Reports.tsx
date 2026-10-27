@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Download,
   DollarSign,
   Package,
-  TrendingDown,
   TrendingUp,
 } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -24,8 +22,6 @@ import { cn } from '../../lib/cn'
 
 export function Reports() {
   const { toast } = useToast()
-  const [bulkOpen, setBulkOpen] = useState(false)
-  const [percentage, setPercentage] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['report-summary'],
@@ -192,71 +188,6 @@ export function Reports() {
             </Card>
           </div>
 
-          <Card className="mt-5 p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="flex items-center gap-2 text-xl text-ink">
-                  <TrendingDown className="h-5 w-5 text-accent-600" />
-                  Actualización masiva de precios
-                </h2>
-                <p className="mt-1 text-xs text-ink-muted">
-                  Ajusta todos los precios por porcentaje. Los cambios se aplican a todas las
-                  presentaciones.
-                </p>
-              </div>
-              {!bulkOpen && (
-                <Button variant="outline" onClick={() => setBulkOpen(true)}>
-                  Ajustar precios
-                </Button>
-              )}
-            </div>
-
-            {bulkOpen && (
-              <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-sand-50 p-4">
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
-                    Porcentaje
-                  </label>
-                  <input
-                    type="number"
-                    value={percentage}
-                    onChange={(event) => setPercentage(event.target.value)}
-                    placeholder="Ej. 10 o -5"
-                    className="mt-1 h-11 w-40 rounded-xl border border-sand-300 bg-white px-3 text-sm outline-none focus:border-brand-500"
-                  />
-                </div>
-                <Button
-                  onClick={async () => {
-                    const value = Number(percentage)
-                    if (!value) {
-                      toast('Ingresa un porcentaje distinto de cero', 'error')
-                      return
-                    }
-                    if (
-                      !confirm(
-                        `¿Ajustar todos los precios en ${value > 0 ? '+' : ''}${value}%?`,
-                      )
-                    ) {
-                      return
-                    }
-                    try {
-                      const result = await api.admin.bulkPrices({ percentage: value })
-                      toast(result.message)
-                      setBulkOpen(false)
-                      setPercentage('')
-                    } catch (error) {
-                      toast(error instanceof Error ? error.message : 'Error al actualizar', 'error')
-                    }
-                  }}
-                >
-                  Aplicar
-                </Button>
-                <Button variant="ghost" onClick={() => setBulkOpen(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            )}
-          </Card>
         </>
       )}
     </>

@@ -25,7 +25,6 @@ from app.models import (
     User,
 )
 from app.schemas import (
-    BulkPriceIn,
     ImageOut,
     MessageOut,
     PaginatedAdminProducts,
@@ -444,27 +443,3 @@ def delete_image(
     db.delete(image)
     db.commit()
     return MessageOut(message="Imagen eliminada")
-
-
-@router.post("/precios/masivo", response_model=MessageOut)
-def bulk_price_update(
-    payload: BulkPriceIn,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_staff),
-) -> MessageOut:
-    query = select(Presentation).join(Product)
-    if payload.family_id is not None:
-        query = query.where(Product.family_id == payload.family_id)
-    if payload.product_type is not None:
-        query = query.where(Product.product_type == payload.product_type)
-
-    presentations = list(db.scalars(query).all())
-    factor = 1 + (payload.percentage / 100)
-    for presentation in presentations:
-        presentation.price_cop = max(0, round(presentation.price_cop * factor))
-
-    db.commit()
-    return MessageOut(
-        message=f"Precios actualizados en {len(presentations)} presentaciones",
-        detail={"updated": len(presentations)},
-    )
