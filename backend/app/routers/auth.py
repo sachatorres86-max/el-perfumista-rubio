@@ -56,7 +56,7 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
         value=token,
         max_age=max_age,
         httponly=True,
-        samesite="lax",
+        samesite=settings.cookie_samesite,
         secure=settings.cookie_secure,
         path="/",
     )

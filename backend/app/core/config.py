@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://perfumista:Perfumista2026@127.0.0.1:5433/perfumista"
     access_token_expire_minutes: int = 480
     cookie_secure: bool = False
+    cookie_samesite: str = "lax"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     media_dir: str = "media"
     frontend_dist: str = "../frontend/dist"
