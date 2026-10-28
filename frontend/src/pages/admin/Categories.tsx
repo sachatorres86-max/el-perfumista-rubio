@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import type { Family, Note } from '../../lib/types'
 import { useToast } from '../../components/Toast'
 import { Modal } from '../../components/Modal'
+import { ConfirmModal } from '../../components/ConfirmModal'
 import {
   Badge,
   Button,
@@ -34,6 +35,9 @@ export function Categories() {
 
   const [noteModal, setNoteModal] = useState(false)
   const [noteForm, setNoteForm] = useState<{ id?: number; name: string }>({ name: '' })
+
+  const [deleteTargetFamily, setDeleteTargetFamily] = useState<Family | null>(null)
+  const [deleteTargetNote, setDeleteTargetNote] = useState<Note | null>(null)
 
   const { data: families = [], isLoading: familiesLoading } = useQuery({
     queryKey: ['admin-families'],
@@ -69,6 +73,7 @@ export function Categories() {
     mutationFn: (id: number) => api.admin.deleteFamily(id),
     onSuccess: () => {
       toast('Familia eliminada')
+      setDeleteTargetFamily(null)
       queryClient.invalidateQueries({ queryKey: ['admin-families'] })
       queryClient.invalidateQueries({ queryKey: ['families'] })
     },
@@ -93,6 +98,7 @@ export function Categories() {
     mutationFn: (id: number) => api.admin.deleteNote(id),
     onSuccess: () => {
       toast('Nota eliminada')
+      setDeleteTargetNote(null)
       queryClient.invalidateQueries({ queryKey: ['admin-notes'] })
       queryClient.invalidateQueries({ queryKey: ['notes'] })
     },
@@ -186,11 +192,8 @@ export function Categories() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    if (confirm(`¿Eliminar la familia "${family.name}"?`)) {
-                      deleteFamily.mutate(family.id)
-                    }
-                  }}
+                  onClick={() => setDeleteTargetFamily(family)}
+                  aria-label={`Eliminar ${family.name}`}
                 >
                   <Trash2 className="h-3.5 w-3.5 text-rose-500" />
                 </Button>
@@ -218,9 +221,7 @@ export function Categories() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm(`¿Eliminar la nota "${note.name}"?`)) deleteNote.mutate(note.id)
-                  }}
+                  onClick={() => setDeleteTargetNote(note)}
                   className="rounded-full p-1 text-ink-muted transition hover:bg-white hover:text-rose-600"
                   aria-label={`Eliminar ${note.name}`}
                 >
@@ -325,6 +326,51 @@ export function Categories() {
           Las notas se asignan a los productos desde el formulario de producto.
         </p>
       </Modal>
+
+      <ConfirmModal
+        open={deleteTargetFamily !== null}
+        onClose={() => setDeleteTargetFamily(null)}
+        onConfirm={() => {
+          if (deleteTargetFamily) deleteFamily.mutate(deleteTargetFamily.id)
+        }}
+        title="Eliminar familia olfativa"
+        confirmText="Eliminar"
+        variant="danger"
+        loading={deleteFamily.isPending}
+      >
+        <p className="text-sm text-ink-muted">
+          ¿Estás seguro de que deseas eliminar la familia{' '}
+          <strong className="text-ink">{deleteTargetFamily?.name}</strong>?
+          {(deleteTargetFamily?.product_count ?? 0) > 0 && (
+            <span className="mt-2 block rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+              Esta familia tiene {deleteTargetFamily?.product_count} producto(s) asociado(s). Se
+              desvincularán de esta familia.
+            </span>
+          )}
+        </p>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={deleteTargetNote !== null}
+        onClose={() => setDeleteTargetNote(null)}
+        onConfirm={() => {
+          if (deleteTargetNote) deleteNote.mutate(deleteTargetNote.id)
+        }}
+        title="Eliminar nota olfativa"
+        confirmText="Eliminar"
+        variant="danger"
+        loading={deleteNote.isPending}
+      >
+        <p className="text-sm text-ink-muted">
+          ¿Estás seguro de que deseas eliminar la nota olfativa{' '}
+          <strong className="text-ink">{deleteTargetNote?.name}</strong>?
+          {(deleteTargetNote?.usage_count ?? 0) > 0 && (
+            <span className="mt-2 block rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+              Esta nota se utiliza actualmente en {deleteTargetNote?.usage_count} producto(s).
+            </span>
+          )}
+        </p>
+      </ConfirmModal>
     </>
   )
 }

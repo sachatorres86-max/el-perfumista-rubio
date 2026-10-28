@@ -19,6 +19,7 @@ import { GENDERS, PRODUCT_TYPES } from '../../lib/constants'
 import { NOTE_TYPE_LABELS, formatCOP } from '../../lib/format'
 import { useToast } from '../../components/Toast'
 import { ProductImage } from '../../components/ProductImage'
+import { ConfirmModal } from '../../components/ConfirmModal'
 import {
   Badge,
   Button,
@@ -79,6 +80,8 @@ export function ProductForm() {
   const [presentations, setPresentations] = useState<PresentationRow[]>([newRow()])
   const [images, setImages] = useState<Array<{ id: number; path: string }>>([])
   const [uploading, setUploading] = useState(false)
+  const [deleteImageTarget, setDeleteImageTarget] = useState<number | null>(null)
+  const [deletingImage, setDeletingImage] = useState(false)
 
   const { data: families = [] } = useQuery({
     queryKey: ['admin-families'],
@@ -242,14 +245,22 @@ export function ProductForm() {
 
   const onDeleteImage = async (imageId: number) => {
     if (!isEdit) return
-    if (!confirm('¿Eliminar esta imagen?')) return
+    setDeleteImageTarget(imageId)
+  }
+
+  const confirmDeleteImage = async () => {
+    if (!deleteImageTarget || !isEdit) return
+    setDeletingImage(true)
     try {
-      await api.admin.deleteImage(Number(id), imageId)
-      setImages((current) => current.filter((image) => image.id !== imageId))
+      await api.admin.deleteImage(Number(id), deleteImageTarget)
+      setImages((current) => current.filter((image) => image.id !== deleteImageTarget))
       toast('Imagen eliminada')
       queryClient.invalidateQueries({ queryKey: ['admin-product', id] })
+      setDeleteImageTarget(null)
     } catch (error) {
       toast(error instanceof Error ? error.message : 'No se pudo eliminar', 'error')
+    } finally {
+      setDeletingImage(false)
     }
   }
 
@@ -683,6 +694,20 @@ export function ProductForm() {
           {isEdit ? 'Guardar cambios' : 'Crear producto'}
         </Button>
       </div>
+
+      <ConfirmModal
+        open={deleteImageTarget !== null}
+        onClose={() => setDeleteImageTarget(null)}
+        onConfirm={confirmDeleteImage}
+        title="Eliminar imagen"
+        confirmText="Eliminar"
+        variant="danger"
+        loading={deletingImage}
+      >
+        <p className="text-sm text-ink-muted">
+          ¿Estás seguro de que deseas eliminar esta imagen del producto? Esta acción no se puede deshacer.
+        </p>
+      </ConfirmModal>
     </form>
   )
 }

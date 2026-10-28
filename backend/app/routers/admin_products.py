@@ -375,6 +375,18 @@ def deactivate_product(
     return MessageOut(message="Producto desactivado")
 
 
+@router.post("/{product_id}/activar", response_model=MessageOut)
+def activate_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_staff),
+) -> MessageOut:
+    product = _get_product(db, product_id)
+    product.active = True
+    db.commit()
+    return MessageOut(message="Producto activado")
+
+
 @router.post("/{product_id}/imagenes", response_model=ImageOut, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     product_id: int,

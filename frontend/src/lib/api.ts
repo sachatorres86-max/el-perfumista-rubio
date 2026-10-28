@@ -135,6 +135,8 @@ export const api = {
       }),
     deactivateProduct: (id: number) =>
       request<{ message: string }>(`/admin/productos/${id}`, { method: 'DELETE' }),
+    activateProduct: (id: number) =>
+      request<{ message: string }>(`/admin/productos/${id}/activar`, { method: 'POST' }),
     uploadImage: (productId: number, file: File) => {
       const formData = new FormData()
       formData.append('file', file)

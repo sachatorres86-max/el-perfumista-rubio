@@ -160,6 +160,11 @@ def test_deactivate_product_hides_it_from_public_catalog(admin_client: TestClien
     inactive = admin_client.get("/api/admin/productos", params={"estado": "inactivo"}).json()
     assert any(item["id"] == created["id"] for item in inactive["items"])
 
+    # Re-activate
+    activate_resp = admin_client.post(f"/api/admin/productos/{created['id']}/activar")
+    assert activate_resp.status_code == 200
+    assert admin_client.get(f"/api/productos/{slug}").status_code == 200
+
 
 def test_admin_listing_filters(admin_client: TestClient) -> None:
     assert admin_client.post("/api/admin/productos", json=_payload(sku="TST-0008")).status_code == 201

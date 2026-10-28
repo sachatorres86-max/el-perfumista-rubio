@@ -20,6 +20,7 @@ import {
 } from '../../lib/format'
 import { useToast } from '../../components/Toast'
 import { Modal } from '../../components/Modal'
+import { ConfirmModal } from '../../components/ConfirmModal'
 import { MovementModal } from '../../components/admin/MovementModal'
 import {
   Badge,
@@ -85,6 +86,7 @@ export function Supplies() {
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<SupplyFormState>(emptyForm())
   const [movementFor, setMovementFor] = useState<Supply | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Supply | null>(null)
 
   useEffect(() => {
     const next = new URLSearchParams()
@@ -123,6 +125,7 @@ export function Supplies() {
     mutationFn: (id: number) => api.admin.deactivateSupply(id),
     onSuccess: () => {
       toast('Insumo desactivado')
+      setDeactivateTarget(null)
       queryClient.invalidateQueries({ queryKey: ['admin-supplies'] })
     },
     onError: (error: Error) => toast(error.message, 'error'),
@@ -283,10 +286,9 @@ export function Supplies() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (confirm(`¿Desactivar "${supply.name}"?`)) deactivate.mutate(supply.id)
-                    }}
+                    onClick={() => setDeactivateTarget(supply)}
                     title="Desactivar"
+                    aria-label={`Desactivar ${supply.name}`}
                   >
                     <EyeOff className="h-4 w-4" />
                   </Button>
@@ -407,6 +409,24 @@ export function Supplies() {
         defaultItemType="insumo"
         defaultSupplyId={movementFor?.id}
       />
+
+      <ConfirmModal
+        open={deactivateTarget !== null}
+        onClose={() => setDeactivateTarget(null)}
+        onConfirm={() => {
+          if (deactivateTarget) deactivate.mutate(deactivateTarget.id)
+        }}
+        title="Desactivar insumo"
+        confirmText="Desactivar"
+        variant="danger"
+        loading={deactivate.isPending}
+      >
+        <p className="text-sm text-ink-muted">
+          ¿Estás seguro de que deseas desactivar el insumo{' '}
+          <strong className="text-ink">{deactivateTarget?.name}</strong>? Dejará de mostrarse en los
+          selectores activos y en el listado general salvo que se filtre por inactivos.
+        </p>
+      </ConfirmModal>
     </>
   )
 }

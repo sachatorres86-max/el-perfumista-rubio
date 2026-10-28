@@ -16,8 +16,10 @@ import { api } from '../../lib/api'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { formatCOP, priceRange, productTypeLabel } from '../../lib/format'
 import { useToast } from '../../components/Toast'
+import { Modal } from '../../components/Modal'
 import { MovementModal } from '../../components/admin/MovementModal'
 import { ProductImage } from '../../components/ProductImage'
+import type { ProductAdminListItem } from '../../lib/types'
 import {
   Badge,
   Button,
@@ -43,6 +45,7 @@ export function Products() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [movementFor, setMovementFor] = useState<number | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<ProductAdminListItem | null>(null)
 
   const estado = searchParams.get('estado') ?? ''
   const familia = searchParams.get('familia') ?? ''
@@ -84,10 +87,16 @@ export function Products() {
       }),
   })
 
-  const deactivate = useMutation({
-    mutationFn: (id: number) => api.admin.deactivateProduct(id),
-    onSuccess: () => {
-      toast('Producto desactivado')
+  const toggleActive = useMutation({
+    mutationFn: async (product: ProductAdminListItem) => {
+      if (product.active) {
+        return api.admin.deactivateProduct(product.id)
+      }
+      return api.admin.activateProduct(product.id)
+    },
+    onSuccess: (_, product) => {
+      toast(product.active ? 'Producto desactivado del catálogo' : 'Producto activado en el catálogo')
+      setToggleTarget(null)
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
     },
@@ -248,14 +257,15 @@ export function Products() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`¿Desactivar "${product.name}"? Dejará de mostrarse en el catálogo.`)) {
-                          deactivate.mutate(product.id)
-                        }
-                      }}
-                      title="Desactivar"
+                      onClick={() => setToggleTarget(product)}
+                      title={product.active ? 'Desactivar visibilidad' : 'Activar visibilidad'}
+                      aria-label={product.active ? 'Desactivar visibilidad' : 'Activar visibilidad'}
                     >
-                      {product.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {product.active ? (
+                        <EyeOff className="h-4 w-4 text-ink-muted hover:text-ink" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-emerald-600 hover:text-emerald-700" />
+                      )}
                     </Button>
                   </div>
                 </li>
@@ -302,6 +312,60 @@ export function Products() {
         onClose={() => setMovementFor(null)}
         defaultItemType="presentacion"
       />
+
+      <Modal
+        open={toggleTarget !== null}
+        onClose={() => {
+          if (!toggleActive.isPending) setToggleTarget(null)
+        }}
+        title={toggleTarget?.active ? 'Desactivar producto' : 'Activar producto'}
+        description={
+          toggleTarget?.active
+            ? 'El producto se ocultará de la tienda pública.'
+            : 'El producto volverá a estar visible en la tienda pública.'
+        }
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              disabled={toggleActive.isPending}
+              onClick={() => setToggleTarget(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={toggleTarget?.active ? 'danger' : 'primary'}
+              loading={toggleActive.isPending}
+              onClick={() => {
+                if (toggleTarget) {
+                  toggleActive.mutate(toggleTarget)
+                }
+              }}
+            >
+              {toggleTarget?.active ? 'Desactivar' : 'Activar'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-ink-muted">
+          <p>
+            ¿Estás seguro de que deseas {toggleTarget?.active ? 'desactivar' : 'activar'} la visibilidad
+            de <strong className="text-ink">{toggleTarget?.name}</strong>?
+          </p>
+          {toggleTarget?.active ? (
+            <p className="rounded-xl border border-sand-200 bg-sand-50 p-3 text-xs leading-relaxed text-ink-muted">
+              Al desactivarlo, dejará de aparecer en las búsquedas, categorías y listados de clientes.
+              Las presentaciones y su stock se conservarán.
+            </p>
+          ) : (
+            <p className="rounded-xl border border-sand-200 bg-sand-50 p-3 text-xs leading-relaxed text-ink-muted">
+              Al activarlo, volverá a estar disponible para que los clientes puedan verlo y consultar
+              por WhatsApp según el stock de sus presentaciones.
+            </p>
+          )}
+        </div>
+      </Modal>
     </>
   )
 }
