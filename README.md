@@ -33,11 +33,18 @@ presentaciones, insumos, stock y reportes.
 
 ### Cuentas iniciales
 
-En el primer arranque se crean las cuentas configuradas en `backend\.env`:
-`ADMIN_EMAIL` / `ADMIN_PASSWORD` para el administrador y
-`vendedor@elperfumistarubio.com` / `SELLER_PASSWORD` para el vendedor. Define
-claves propias antes de iniciar la aplicación. La semilla no cambia la clave de
-una cuenta que ya exista.
+Si no has cambiado las variables en `backend\.env`, las credenciales
+predeterminadas para desarrollo local son:
+
+| Rol | Correo | Contraseña predeterminada |
+| --- | --- | --- |
+| Administrador | `admin@elperfumistarubio.com` | `Perfumista2026!` |
+| Vendedor | `vendedor@elperfumistarubio.com` | `Vendedor2026!` |
+
+Si `backend\.env` define `ADMIN_EMAIL`, `ADMIN_PASSWORD` o `SELLER_PASSWORD`,
+usa esos valores en lugar de los predeterminados. Cambia las contraseñas antes
+de cualquier uso fuera del entorno local. La semilla no cambia las credenciales
+de cuentas que ya existan.
 
 ---
 
