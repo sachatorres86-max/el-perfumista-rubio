@@ -1,5 +1,8 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from pwdlib.hashers.bcrypt import BcryptHasher
 
+from app.models import User
 from tests.conftest import ADMIN_EMAIL, ADMIN_PASSWORD, SELLER_EMAIL, SELLER_PASSWORD
 
 
@@ -14,6 +17,22 @@ def test_login_sets_cookie_and_returns_user(client: TestClient) -> None:
     assert body["role"] == "admin"
     assert "password" not in body
     assert "perfumista_session" in response.cookies
+
+
+def test_login_migrates_legacy_bcrypt_hash(client: TestClient, db_session) -> None:
+    user = db_session.scalar(select(User).where(User.email == ADMIN_EMAIL))
+    assert user is not None
+    user.password_hash = BcryptHasher().hash(ADMIN_PASSWORD)
+    db_session.commit()
+
+    response = client.post(
+        "/api/auth/login",
+        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+    )
+
+    assert response.status_code == 200
+    db_session.refresh(user)
+    assert user.password_hash.startswith("$argon2")
 
 
 def test_login_is_case_insensitive_for_email(client: TestClient) -> None:

@@ -44,7 +44,9 @@ predeterminadas para desarrollo local son:
 Si `backend\.env` define `ADMIN_EMAIL`, `ADMIN_PASSWORD` o `SELLER_PASSWORD`,
 usa esos valores en lugar de los predeterminados. Cambia las contraseñas antes
 de cualquier uso fuera del entorno local. La semilla no cambia las credenciales
-de cuentas que ya existan.
+de cuentas que ya existan. Si Supabase se inicializó con la versión anterior
+del SQL, vuelve a ejecutar `supabase_schema_and_seed.sql`: corrige únicamente
+los hashes iniciales defectuosos que no hayan sido cambiados.
 
 ---
 
@@ -259,7 +261,8 @@ La interfaz de desarrollo queda en <http://localhost:5173> y redirige `/api` y
 
 - La aplicación está pensada para ejecutarse **solo en la red local**.
 - Las sesiones usan una cookie `httpOnly` firmada; las contraseñas se guardan
-  con Argon2.
+  con Argon2. Las claves bcrypt creadas por la semilla SQL anterior se migran
+  automáticamente a Argon2 después de un inicio de sesión válido.
 - El inicio de sesión limita los intentos fallidos por dirección y correo.
 - El catálogo público omite deliberadamente todos los precios y el stock exacto.
 - Antes de publicar en internet: usa HTTPS, activa `COOKIE_SECURE=true`, cambia

@@ -2,10 +2,12 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 from app.core.config import settings
 
-password_hasher = PasswordHash.recommended()
+password_hasher = PasswordHash((Argon2Hasher(), BcryptHasher()))
 
 
 def hash_password(password: str) -> str:
@@ -17,6 +19,13 @@ def verify_password(password: str, password_hash: str) -> bool:
         return password_hasher.verify(password, password_hash)
     except Exception:
         return False
+
+
+def verify_password_and_update(password: str, password_hash: str) -> tuple[bool, str | None]:
+    try:
+        return password_hasher.verify_and_update(password, password_hash)
+    except Exception:
+        return False, None
 
 
 def create_access_token(user_id: int, role: str) -> str:

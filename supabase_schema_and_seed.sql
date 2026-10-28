@@ -154,11 +154,22 @@ CREATE TABLE IF NOT EXISTS configuracion (
 -- ============================== SEED DATA ==============================
 
 -- ---- Usuarios ----
--- Contraseña: Perfumista2026! (bcrypt hash)
+-- Contraseña: Perfumista2026! (Argon2id hash)
 INSERT INTO usuarios (name, email, password_hash, role) VALUES
-  ('Administrador', 'admin@elperfumistarubio.com', '$2b$12$LJ3m9X6tV2nFzHq4QGdBWOvEcKpC7Fa8mXz1sMkRxHwPd5WqSjZ/y', 'admin'),
-  ('Vendedor', 'vendedor@elperfumistarubio.com', '$2b$12$LJ3m9X6tV2nFzHq4QGdBWOvEcKpC7Fa8mXz1sMkRxHwPd5WqSjZ/y', 'vendedor')
+  ('Administrador', 'admin@elperfumistarubio.com', '$argon2id$v=19$m=65536,t=3,p=4$aNGXOFtAzp9OmiHsYVUpDg$TALP65uYrWQDHpIbaXIEYTQgGG9l66wm7iJfNYRESKY', 'admin'),
+  ('Vendedor', 'vendedor@elperfumistarubio.com', '$argon2id$v=19$m=65536,t=3,p=4$K/taJyr/VQN22kj4kzkN3w$Gr9A+faRusPqrJRfR5lo79tj5eKkDGDhoaHuRwhdpHo', 'vendedor')
 ON CONFLICT (email) DO NOTHING;
+
+-- Repara las claves bcrypt de la semilla anterior solo si no fueron cambiadas.
+UPDATE usuarios
+SET password_hash = '$argon2id$v=19$m=65536,t=3,p=4$aNGXOFtAzp9OmiHsYVUpDg$TALP65uYrWQDHpIbaXIEYTQgGG9l66wm7iJfNYRESKY'
+WHERE email = 'admin@elperfumistarubio.com'
+  AND password_hash = '$2b$12$LJ3m9X6tV2nFzHq4QGdBWOvEcKpC7Fa8mXz1sMkRxHwPd5WqSjZ/y';
+
+UPDATE usuarios
+SET password_hash = '$argon2id$v=19$m=65536,t=3,p=4$K/taJyr/VQN22kj4kzkN3w$Gr9A+faRusPqrJRfR5lo79tj5eKkDGDhoaHuRwhdpHo'
+WHERE email = 'vendedor@elperfumistarubio.com'
+  AND password_hash = '$2b$12$LJ3m9X6tV2nFzHq4QGdBWOvEcKpC7Fa8mXz1sMkRxHwPd5WqSjZ/y';
 
 -- ---- Configuración ----
 INSERT INTO configuracion (key, value) VALUES
@@ -720,4 +731,3 @@ BEGIN
   INSERT INTO movimientos_inventario (item_type, supply_id, movement_type, quantity, resulting_stock, reason, user_id) VALUES ('insumo', sup_id, 'entrada', 200, 200, 'Stock inicial', admin_id);
 
 END $$;
-

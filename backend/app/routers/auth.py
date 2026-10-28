@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import COOKIE_NAME, get_current_user
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, verify_password_and_update
 from app.models import User
 from app.schemas import LoginIn, MessageOut, UserOut
 
@@ -41,12 +41,23 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
     _check_rate(key)
 
     user = db.scalar(select(User).where(func.lower(User.email) == payload.email.lower()))
-    if not user or not user.active or not verify_password(payload.password, user.password_hash):
+    if not user or not user.active:
         _failed_attempts[key].append(time.time())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
         )
+
+    password_valid, updated_hash = verify_password_and_update(payload.password, user.password_hash)
+    if not password_valid:
+        _failed_attempts[key].append(time.time())
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Correo o contraseña incorrectos",
+        )
+    if updated_hash:
+        user.password_hash = updated_hash
+        db.commit()
 
     _failed_attempts.pop(key, None)
     token = create_access_token(user.id, user.role.value)
