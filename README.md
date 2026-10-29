@@ -267,4 +267,28 @@ La interfaz de desarrollo queda en <http://localhost:5173> y redirige `/api` y
 - El catálogo público omite deliberadamente todos los precios y el stock exacto.
 - Antes de publicar en internet: usa HTTPS, activa `COOKIE_SECURE=true`, cambia
   `SECRET_KEY` y las contraseñas iniciales, y restringe `CORS_ORIGINS`.
+
+---
+
+## 10. Despliegue en línea (Vercel + Render)
+
+El frontend se publica como proyecto Vercel con **Root Directory** `frontend`,
+comando de compilación `npm run build` y directorio de salida `dist`. El archivo
+`frontend/vercel.json` redirige `/api` y `/media` al backend.
+
+El backend y PostgreSQL se pueden crear desde el Blueprint `render.yaml` en la
+raíz del repositorio. Antes de importar los datos locales, confirma que la base
+Render está creada y que la API responde en `/api/health`. No publiques nunca
+`backend/.env`, volcados de base de datos ni contraseñas en Git.
+
+**Importante sobre el plan gratuito:** Render Postgres vence a los 30 días y,
+tras el período de gracia, Render elimina la base y sus datos. El sistema de
+archivos del backend gratuito es efímero: las imágenes nuevas subidas desde el
+panel se pierden al reiniciar o volver a desplegar. Los archivos de imágenes
+incluidos en Git sí se despliegan, pero para conservar futuras cargas se
+requiere almacenamiento persistente o de objetos. No uses este plan para datos
+de negocio sin copias de seguridad y un plan de migración.
+
+Antes de habilitar el acceso público, utiliza una contraseña de administrador
+única y larga, y un `SECRET_KEY` aleatorio distinto del entorno local.
 "# el-perfumista-rubio" 
