@@ -56,8 +56,10 @@ def _override_get_db():
 @pytest.fixture()
 def client():
     app.dependency_overrides[get_db] = _override_get_db
-    # Sin `with`, el lifespan (Postgres/seed) no se ejecuta.
-    test_client = TestClient(app)
+    # Sin `with`, el lifespan (Postgres/seed) no se ejecuta. Se usa HTTPS
+    # para que las cookies Secure configuradas en producción también viajen
+    # durante las pruebas.
+    test_client = TestClient(app, base_url="https://testserver")
     try:
         yield test_client
     finally:

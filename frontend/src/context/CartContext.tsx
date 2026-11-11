@@ -1,13 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import { api } from '../lib/api'
-import { encodeCartToken } from '../lib/cartShare'
 import type { CartItem } from '../lib/types'
 
 const STORAGE_PREFIX = 'perfumista_cart_v1'
-const CONFIRMATION_PREFIX = 'perfumista_cart_confirmation_v1'
-const CONFIRMATION_POLL_MS = 10_000
 const MAX_QUANTITY = 99
 
 interface CartContextValue {
@@ -59,7 +55,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [ready, setReady] = useState(false)
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
-  const shareToken = useMemo(() => encodeCartToken(items), [items])
 
   useEffect(() => {
     if (authLoading) return
@@ -91,55 +86,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // El carrito sigue funcionando en memoria si el navegador bloquea localStorage.
     }
   }, [items, ready, storageKey, loadedKey])
-
-  // La confirmación ocurre en el navegador del personal. El cliente detecta el
-  // cambio consultando el estado de su enlace y vacía el carrito local.
-  useEffect(() => {
-    if (!ready || !storageKey || loadedKey !== storageKey || !shareToken || !user) return
-
-    const ackKey = `${CONFIRMATION_PREFIX}:${user.id}`
-    let active = true
-
-    const checkConfirmation = async () => {
-      try {
-        const status = await api.sharedCartStatus(shareToken)
-        if (!active || !status.confirmada || status.quote_id === null) return
-
-        let acknowledged = 0
-        try {
-          acknowledged = Number(window.localStorage.getItem(ackKey) ?? '0') || 0
-        } catch {
-          acknowledged = 0
-        }
-        if (status.quote_id <= acknowledged) return
-
-        try {
-          window.localStorage.setItem(ackKey, String(status.quote_id))
-          window.localStorage.removeItem(storageKey)
-        } catch {
-          // El carrito se limpia igualmente en memoria.
-        }
-        setItems([])
-      } catch {
-        // Un fallo de red no debe afectar el carrito; se reintenta en el próximo ciclo.
-      }
-    }
-
-    void checkConfirmation()
-    const interval = window.setInterval(checkConfirmation, CONFIRMATION_POLL_MS)
-    const checkWhenVisible = () => {
-      if (document.visibilityState === 'visible') void checkConfirmation()
-    }
-    window.addEventListener('focus', checkWhenVisible)
-    document.addEventListener('visibilitychange', checkWhenVisible)
-
-    return () => {
-      active = false
-      window.clearInterval(interval)
-      window.removeEventListener('focus', checkWhenVisible)
-      document.removeEventListener('visibilitychange', checkWhenVisible)
-    }
-  }, [ready, storageKey, loadedKey, shareToken, user])
 
   const addItem = useCallback(
     (presentationId: number, quantity = 1) => {

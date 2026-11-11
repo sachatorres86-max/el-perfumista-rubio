@@ -1,18 +1,19 @@
 import math
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.deps import require_staff
-from app.models import Quote, User
-from app.schemas import (
-    PaginatedQuotes,
-    QuoteCreateIn,
-    QuoteOut,
+from app.models import Quote, QuoteStatus, User
+from app.schemas import PaginatedQuotes, QuoteOut
+from app.services.quotes import (
+    cancel_quote,
+    confirm_quote,
+    expire_pending_orders,
+    serialize_quote,
 )
-from app.services.quotes import cancel_quote, confirm_quote, serialize_quote
 
 router = APIRouter(prefix="/api/admin/cotizaciones", tags=["admin · cotizaciones"])
 
@@ -20,13 +21,15 @@ router = APIRouter(prefix="/api/admin/cotizaciones", tags=["admin · cotizacione
 @router.get("", response_model=PaginatedQuotes)
 def list_quotes(
     estado: str | None = Query(
-        default=None, pattern="^(confirmada|cancelada)$"
+        default=None, pattern="^(pendiente|confirmada|cancelada)$"
     ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(require_staff),
 ) -> dict:
+    expire_pending_orders(db)
+
     conditions = []
     if estado:
         conditions.append(Quote.status == estado)
@@ -37,10 +40,15 @@ def list_quotes(
         .where(*conditions)
         .options(
             selectinload(Quote.items),
+            selectinload(Quote.client),
             selectinload(Quote.confirmed_by),
             selectinload(Quote.cancelled_by),
         )
-        .order_by(Quote.created_at.desc(), Quote.id.desc())
+        .order_by(
+            case((Quote.status == QuoteStatus.pendiente, 0), else_=1),
+            Quote.created_at.desc(),
+            Quote.id.desc(),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -54,13 +62,17 @@ def list_quotes(
     }
 
 
-@router.post("/confirmar", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{quote_id}/confirmar",
+    response_model=QuoteOut,
+    status_code=status.HTTP_201_CREATED,
+)
 def confirm(
-    payload: QuoteCreateIn,
+    quote_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_staff),
 ) -> dict:
-    quote = confirm_quote(db, payload.token, user)
+    quote = confirm_quote(db, quote_id, user)
     return serialize_quote(quote)
 
 

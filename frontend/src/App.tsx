@@ -16,9 +16,6 @@ const ClientRegister = lazy(() =>
   import('./pages/ClientAuth').then((module) => ({ default: module.ClientRegister })),
 )
 const Cart = lazy(() => import('./pages/Cart').then((module) => ({ default: module.Cart })))
-const SharedCart = lazy(() =>
-  import('./pages/SharedCart').then((module) => ({ default: module.SharedCart })),
-)
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })))
 
 const AdminLayout = lazy(() =>
@@ -68,7 +65,6 @@ export default function App() {
           <Route path="cuenta/ingresar" element={<ClientLogin />} />
           <Route path="cuenta/registro" element={<ClientRegister />} />
           <Route path="carrito" element={<Cart />} />
-          <Route path="cotizacion/:token" element={<SharedCart />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 

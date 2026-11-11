@@ -68,6 +68,7 @@ class ItemType(str, enum.Enum):
 
 
 class QuoteStatus(str, enum.Enum):
+    pendiente = "pendiente"
     confirmada = "confirmada"
     cancelada = "cancelada"
 
@@ -255,12 +256,17 @@ class Quote(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    source_token_hash: Mapped[str] = mapped_column(String(64), index=True)
+    # Se conserva para cotizaciones históricas creadas con enlaces compartidos.
+    source_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     status: Mapped[QuoteStatus] = mapped_column(
-        _enum(QuoteStatus, 20), default=QuoteStatus.confirmada, index=True
+        _enum(QuoteStatus, 20), default=QuoteStatus.pendiente, index=True
+    )
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL"), index=True
     )
     total_cop: Mapped[int] = mapped_column(Integer, default=0)
     total_units: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     confirmed_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("usuarios.id", ondelete="SET NULL")
     )
@@ -277,6 +283,7 @@ class Quote(Base):
         cascade="all, delete-orphan",
         order_by="QuoteItem.id",
     )
+    client: Mapped[User | None] = relationship(foreign_keys=[client_id])
     confirmed_by: Mapped[User | None] = relationship(foreign_keys=[confirmed_by_id])
     cancelled_by: Mapped[User | None] = relationship(foreign_keys=[cancelled_by_id])
 

@@ -1,4 +1,6 @@
-from contextlib import asynccontextmanager
+import asyncio
+import logging
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -20,18 +22,37 @@ from app.routers import (
     auth,
     client_cart,
     public,
-    shared_cart,
 )
 from app.seed import seed_all
+from app.services.quotes import expire_pending_orders
+
+logger = logging.getLogger(__name__)
+ORDER_EXPIRY_CHECK_SECONDS = 300
+
+
+async def _expire_orders_periodically() -> None:
+    while True:
+        await asyncio.sleep(ORDER_EXPIRY_CHECK_SECONDS)
+        try:
+            with SessionLocal() as db:
+                expire_pending_orders(db)
+        except Exception:
+            logger.exception("No se pudieron cancelar los pedidos vencidos")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    expiry_task: asyncio.Task | None = None
     if settings.auto_init_db:
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_all(db)
+        expiry_task = asyncio.create_task(_expire_orders_periodically())
     yield
+    if expiry_task is not None:
+        expiry_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await expiry_task
 
 
 app = FastAPI(
@@ -52,7 +73,6 @@ app.add_middleware(
 app.include_router(public.router)
 app.include_router(auth.router)
 app.include_router(client_cart.router)
-app.include_router(shared_cart.router)
 app.include_router(admin_products.router)
 app.include_router(admin_catalog.router)
 app.include_router(admin_inventory.router)

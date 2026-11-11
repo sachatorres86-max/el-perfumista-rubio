@@ -65,10 +65,10 @@ los hashes iniciales defectuosos que no hayan sido cambiados.
   y `/cuenta/ingresar`.
 - **Carrito de cliente:** se guarda en el navegador por usuario y se valida
   contra la disponibilidad vigente en `/carrito`.
-- **Cotización compartida:** el carrito genera un enlace `/cotizacion/<token>`
-  para enviar por WhatsApp. El personal ve precios, total de referencia y puede
-  confirmar la venta descontando stock; clientes y visitantes ven la selección
-  sin precios y el aviso “Tu vendedor revisará tu compra”.
+- **Pedido desde el carrito:** el cliente pulsa **Realizar pedido**, su carrito
+  se vacía y el pedido queda pendiente de revisión. El vendedor lo confirma
+  desde el panel y solo entonces se descuenta el stock. Si no se confirma en
+  48 horas, el pedido se cancela automáticamente sin afectar inventario.
 - Diseño adaptable (móvil, tableta y escritorio) e instalable como PWA.
 
 ### Panel interno
@@ -80,9 +80,10 @@ los hashes iniciales defectuosos que no hayan sido cambiados.
   unitario y stock mínimo.
 - **Inventario:** historial de entradas, salidas y ajustes para productos
   terminados e insumos, con usuario y motivo.
-- **Cotizaciones:** historial de cotizaciones confirmadas y canceladas. Al
-  confirmar se descuenta el stock y el carrito local del cliente se vacía al
-  detectar la confirmación. Al cancelar se devuelve el stock automáticamente.
+- **Cotizaciones:** pedidos de clientes filtrados en **Pendientes** por
+  defecto, con datos de contacto, productos, precios y total. Al confirmar se
+  descuenta el stock; los pedidos pendientes vencen automáticamente a las 48
+  horas. Un pedido confirmado puede cancelarse para devolver el stock.
 - **Catálogo:** familias olfativas y notas.
 - **Reportes:** actividad diaria, semanal o mensual (movimientos, salidas y
   cotizaciones), alertas de stock, valor del inventario y exportación PDF de
@@ -98,10 +99,12 @@ los hashes iniciales defectuosos que no hayan sido cambiados.
 - **Administrador:** cuenta única con acceso a todo el sistema, incluidas cuentas
   de usuarios y configuración.
 - **Vendedor:** catálogo, productos, insumos, inventario, reportes y
-  cotizaciones (confirmar y cancelar). No puede administrar usuarios, cambiar la
-  configuración ni crear/eliminar familias y notas.
-- **Cliente:** cuenta propia creada desde el sitio público. No accede al panel
-  interno ni a sus endpoints.
+  cotizaciones (confirmar pedidos y cancelar ventas confirmadas). No puede
+  administrar usuarios, cambiar la configuración ni crear/eliminar familias y
+  notas.
+- **Cliente:** cuenta propia creada desde el sitio público. Arma su carrito y
+  realiza pedidos que el vendedor revisa. No accede al panel interno ni a sus
+  endpoints.
 
 ---
 
@@ -188,11 +191,13 @@ PostgreSQL deben existir y ser accesibles con `DATABASE_URL`; la aplicación no
 crea el servidor, el usuario ni la base de datos. La inicialización no reemplaza
 datos existentes. `create_all` crea tablas ausentes, pero no migra ni modifica
 tablas existentes cuando cambia el modelo; para esos cambios se requiere una
-migración planificada. En una base PostgreSQL ya inicializada, ejecuta
-`supabase_migration_quotes.sql` en el SQL Editor para crear las tablas
-`cotizaciones` y `cotizacion_items`, sus índices y habilitar el rol `cliente`.
-No reejecutes `supabase_schema_and_seed.sql` sobre una base con datos: su seed
-de productos no es idempotente.
+migración planificada. En una base PostgreSQL ya inicializada, ejecuta en el SQL Editor
+`supabase_migration_quotes.sql` si aún no tienes las tablas de cotizaciones y,
+sobre una instalación con el flujo anterior, ejecuta después
+`supabase_migration_orders.sql` para habilitar pedidos pendientes, el cliente
+asociado y la expiración a 48 horas. Ambos scripts son idempotentes. No
+reejecutes `supabase_schema_and_seed.sql` sobre una base con datos: su seed de
+productos no es idempotente.
 
 ---
 
@@ -221,10 +226,11 @@ reservados en una URL, codifícalos para URL en `DATABASE_URL`.
 Los datos de contacto, horarios y textos también se editan desde
 **Panel → Configuración**, sin tocar archivos.
 
-Las cotizaciones guardan un hash SHA-256 del enlace (nunca el token completo),
-un snapshot de producto, precio y cantidad, y el usuario que confirma o
-cancela. Una cotización activa por enlace se garantiza con un índice único
-parcial; después de cancelarla, el mismo enlace puede confirmarse de nuevo.
+Cada pedido guarda el cliente que lo realizó, un snapshot de producto, precio y
+cantidad, su vencimiento a 48 horas y el usuario que confirma o cancela. El
+stock no se reserva al crear el pedido: se valida y descuenta de forma
+transaccional al confirmarlo. Los pedidos pendientes vencidos se cancelan
+automáticamente al consultar o confirmar el módulo.
 
 ---
 

@@ -149,14 +149,16 @@ CREATE INDEX IF NOT EXISTS ix_movimientos_presentation ON movimientos_inventario
 CREATE INDEX IF NOT EXISTS ix_movimientos_supply ON movimientos_inventario (supply_id);
 CREATE INDEX IF NOT EXISTS ix_movimientos_created ON movimientos_inventario (created_at);
 
--- Cotizaciones confirmadas desde enlaces de carrito compartido
+-- Pedidos del carrito del cliente y cotizaciones administrativas
 CREATE TABLE IF NOT EXISTS cotizaciones (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  source_token_hash VARCHAR(64) NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'confirmada'
-    CHECK (status IN ('confirmada', 'cancelada')),
+  source_token_hash VARCHAR(64),
+  status VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+    CHECK (status IN ('pendiente', 'confirmada', 'cancelada')),
+  client_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
   total_cop INTEGER NOT NULL DEFAULT 0,
   total_units INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ,
   confirmed_by_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
   cancelled_by_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -165,7 +167,9 @@ CREATE TABLE IF NOT EXISTS cotizaciones (
 CREATE INDEX IF NOT EXISTS ix_cotizaciones_token ON cotizaciones (source_token_hash);
 CREATE INDEX IF NOT EXISTS ix_cotizaciones_status ON cotizaciones (status);
 CREATE INDEX IF NOT EXISTS ix_cotizaciones_created ON cotizaciones (created_at);
--- Una cotización activa por enlace; tras cancelarla se puede confirmar de nuevo.
+CREATE INDEX IF NOT EXISTS ix_cotizaciones_client ON cotizaciones (client_id);
+CREATE INDEX IF NOT EXISTS ix_cotizaciones_expires ON cotizaciones (expires_at);
+-- Compatibilidad con cotizaciones históricas basadas en enlaces compartidos.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_cotizaciones_token_activo
   ON cotizaciones (source_token_hash) WHERE status = 'confirmada';
 

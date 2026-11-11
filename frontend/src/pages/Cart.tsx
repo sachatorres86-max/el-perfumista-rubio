@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  Check,
   CheckCircle2,
-  Copy,
-  MessageCircle,
+  ClipboardCheck,
+  Clock,
   Minus,
   Plus,
   ShoppingBag,
@@ -17,25 +16,19 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-import { useSiteConfig } from '../context/SiteConfigContext'
 import { useToast } from '../components/Toast'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import {
-  CART_STATUS_LABEL,
-  CART_STATUS_TONE,
-  cartShareUrl,
-  encodeCartToken,
-} from '../lib/cartShare'
-import { whatsappLink } from '../lib/format'
+import { CART_STATUS_LABEL, CART_STATUS_TONE } from '../lib/cartStatus'
+import { formatDate } from '../lib/format'
+import type { OrderCreated } from '../lib/types'
 import { ProductImage } from '../components/ProductImage'
 import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui'
 
 export function Cart() {
   const { user, loading: authLoading } = useAuth()
-  const { items, ready, totalUnits, increment, decrement, removeItem } = useCart()
-  const { config } = useSiteConfig()
+  const { items, ready, totalUnits, increment, decrement, removeItem, clear } = useCart()
   const { toast } = useToast()
-  const [copied, setCopied] = useState(false)
+  const [placedOrder, setPlacedOrder] = useState<OrderCreated | null>(null)
 
   useDocumentTitle('Mi carrito | El Perfumista Rubio')
 
@@ -43,6 +36,16 @@ export function Cart() {
     queryKey: ['cart-validation', items],
     queryFn: () => api.client.validateCart(items),
     enabled: Boolean(user && user.role === 'cliente' && ready && items.length > 0),
+  })
+
+  const orderMutation = useMutation({
+    mutationFn: () => api.client.placeOrder(items),
+    onSuccess: (order) => {
+      setPlacedOrder(order)
+      clear()
+      toast(`Pedido #${order.id} enviado a revisión`, 'success')
+    },
+    onError: (error: Error) => toast(error.message, 'error'),
   })
 
   if (authLoading || !ready) {
@@ -106,6 +109,47 @@ export function Cart() {
     )
   }
 
+  if (placedOrder) {
+    return (
+      <div className="container-page py-16">
+        <Card className="mx-auto max-w-2xl p-6 text-center sm:p-10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <ClipboardCheck className="h-8 w-8" />
+          </div>
+          <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-700">
+            Pedido recibido
+          </p>
+          <h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl">
+            Pedido #{placedOrder.id}
+          </h1>
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-ink-muted">
+            Tu pedido estará pendiente de la revisión del vendedor. Él confirmará la
+            disponibilidad y el precio antes de prepararlo.
+          </p>
+          <div className="mx-auto mt-6 flex max-w-md items-start gap-3 rounded-2xl bg-sand-50 p-4 text-left text-sm text-ink-muted">
+            <Clock className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+            <span>
+              {placedOrder.expires_at
+                ? `Si no se confirma antes del ${formatDate(placedOrder.expires_at)}, el pedido se cancelará automáticamente.`
+                : 'Si no se confirma en 48 horas, el pedido se cancelará automáticamente.'}
+            </span>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-ink">
+            {placedOrder.total_units}{' '}
+            {placedOrder.total_units === 1 ? 'unidad solicitada' : 'unidades solicitadas'}
+          </p>
+          <Link
+            to="/catalogo"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Seguir explorando
+          </Link>
+        </Card>
+      </div>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <div className="container-page py-16">
@@ -130,25 +174,6 @@ export function Cart() {
   const lines = data?.items ?? []
   const unavailable = data?.unavailable_items ?? []
   const hasIssues = Boolean(data && !data.valid)
-  const shareToken = encodeCartToken(items)
-  const shareUrl = shareToken ? cartShareUrl(shareToken) : ''
-  const message = [
-    'Hola, quiero consultar disponibilidad de estas fragancias:',
-    ...lines.map((line) => `- ${line.quantity} x ${line.product_name} ${line.volume_ml} ml`),
-    ...(shareUrl ? ['', `Revisa el carrito completo aquí: ${shareUrl}`] : []),
-  ].join('\n')
-
-  const copyShareLink = async () => {
-    if (!shareUrl) return
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      toast('Enlace de cotización copiado', 'success')
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast('No pudimos copiar el enlace. Inténtalo de nuevo.', 'error')
-    }
-  }
 
   return (
     <div className="container-page py-10 sm:py-14">
@@ -306,33 +331,23 @@ export function Cart() {
             )}
             <span>
               {hasIssues
-                ? 'Revisa las cantidades marcadas antes de enviar tu consulta.'
-                : 'Todo lo que tienes en el carrito está disponible para consulta.'}
+                ? 'Revisa las cantidades marcadas antes de realizar tu pedido.'
+                : 'Todo lo que tienes en el carrito está disponible para pedido.'}
             </span>
           </div>
 
-          <a
-            href={shareUrl ? whatsappLink(config.whatsapp_primary, message) : undefined}
-            target="_blank"
-            rel="noreferrer"
-            aria-disabled={!shareUrl}
-            className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent-600 px-5 text-sm font-bold text-white shadow-lg shadow-accent-600/20 transition hover:bg-accent-700 ${shareUrl ? '' : 'pointer-events-none opacity-50'}`}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Compartir por WhatsApp
-          </a>
           <Button
-            variant="outline"
-            className="mt-2 w-full"
-            onClick={copyShareLink}
-            disabled={!shareUrl}
+            className="mt-4 w-full"
+            onClick={() => orderMutation.mutate()}
+            loading={orderMutation.isPending}
+            disabled={!data || !data.valid || isLoading}
           >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Enlace copiado' : 'Copiar enlace'}
+            <ClipboardCheck className="h-4 w-4" />
+            Realizar pedido
           </Button>
-          <p className="mt-3 text-center text-[11px] text-ink-muted">
-            Comparte el enlace para que tu vendedor revise la cotización. Él confirmará
-            disponibilidad y precio.
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-muted">
+            El pedido quedará pendiente de revisión. Tu vendedor confirmará disponibilidad
+            y precio; si no lo confirma en 48 horas, se cancelará automáticamente.
           </p>
         </Card>
       </div>

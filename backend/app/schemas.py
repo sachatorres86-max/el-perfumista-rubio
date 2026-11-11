@@ -143,31 +143,19 @@ class CartValidationOut(BaseModel):
     valid: bool
 
 
-class SharedCartLineOut(CartLineOut):
-    unit_price_cop: int | None = None
-    line_total_cop: int | None = None
+# ---------------------------------------------------------------- pedidos y cotizaciones
 
 
-class SharedCartOut(BaseModel):
-    viewer_role: Literal["admin", "vendedor", "cliente", "anonimo"]
-    items: list[SharedCartLineOut]
-    unavailable_items: list[int]
+class OrderCreateIn(BaseModel):
+    items: list[CartItemIn] = Field(min_length=1, max_length=100)
+
+
+class OrderCreatedOut(BaseModel):
+    id: int
+    status: QuoteStatus
     total_units: int
-    valid: bool
-    total_cop: int | None = None
-
-
-class SharedCartStatusOut(BaseModel):
-    confirmada: bool
-    estado: QuoteStatus | None = None
-    quote_id: int | None = None
-
-
-# ---------------------------------------------------------------- cotizaciones
-
-
-class QuoteCreateIn(BaseModel):
-    token: str = Field(min_length=1, max_length=10_000)
+    created_at: datetime
+    expires_at: datetime | None = None
 
 
 class QuoteItemOut(BaseModel):
@@ -185,12 +173,16 @@ class QuoteItemOut(BaseModel):
 class QuoteOut(BaseModel):
     id: int
     status: QuoteStatus
+    client_name: str | None = None
+    client_email: str | None = None
     total_cop: int
     total_units: int
     created_at: datetime
-    cancelled_at: datetime | None = None
+    expires_at: datetime | None = None
     confirmed_by_name: str | None = None
+    cancelled_at: datetime | None = None
     cancelled_by_name: str | None = None
+    cancelled_automatically: bool = False
     items: list[QuoteItemOut] = Field(default_factory=list)
 
 

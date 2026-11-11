@@ -31,11 +31,26 @@ def _in_stock_presentation(db_session) -> Presentation:
 def test_cart_validation_requires_client_session(client: TestClient) -> None:
     response = client.post("/api/cliente/carrito/validar", json={"items": []})
     assert response.status_code == 401
+    assert (
+        client.post("/api/cliente/carrito/pedido", json={"items": []}).status_code
+        == 401
+    )
 
 
 def test_staff_cannot_use_client_cart(admin_client: TestClient) -> None:
     response = admin_client.post("/api/cliente/carrito/validar", json={"items": []})
     assert response.status_code == 403
+    assert (
+        admin_client.post("/api/cliente/carrito/pedido", json={"items": []}).status_code
+        == 403
+    )
+
+
+def test_place_order_requires_a_non_empty_valid_cart(client: TestClient) -> None:
+    _register_client(client)
+    response = client.post("/api/cliente/carrito/pedido", json={"items": []})
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"]
 
 
 def test_cart_validation_returns_available_line_without_prices(

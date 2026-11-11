@@ -11,6 +11,7 @@ import type {
   MovementInput,
   Note,
   NoteInput,
+  OrderCreated,
   Paginated,
   ClientRegisterInput,
   PresentationOption,
@@ -23,8 +24,6 @@ import type {
   Quote,
   ReportPeriod,
   ReportSummary,
-  SharedCart,
-  SharedCartStatus,
   Supply,
   SupplyInput,
   User,
@@ -112,10 +111,6 @@ export const api = {
   products: (params: ProductQuery = {}) =>
     request<Paginated<ProductListItem>>(`/productos${queryString(params as Record<string, QueryValue>)}`),
   product: (slug: string) => request<ProductDetail>(`/productos/${encodeURIComponent(slug)}`),
-  sharedCart: (token: string) =>
-    request<SharedCart>(`/cotizaciones/${encodeURIComponent(token)}`),
-  sharedCartStatus: (token: string) =>
-    request<SharedCartStatus>(`/cotizaciones/${encodeURIComponent(token)}/estado`),
 
   auth: {
     login: (email: string, password: string) =>
@@ -135,6 +130,16 @@ export const api = {
   client: {
     validateCart: (items: CartItem[]) =>
       request<CartValidation>('/cliente/carrito/validar', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            presentation_id: item.presentationId,
+            quantity: item.quantity,
+          })),
+        }),
+      }),
+    placeOrder: (items: CartItem[]) =>
+      request<OrderCreated>('/cliente/carrito/pedido', {
         method: 'POST',
         body: JSON.stringify({
           items: items.map((item) => ({
@@ -237,11 +242,8 @@ export const api = {
       request<Paginated<Quote>>(
         `/admin/cotizaciones${queryString(params as Record<string, QueryValue>)}`,
       ),
-    confirmQuote: (token: string) =>
-      request<Quote>('/admin/cotizaciones/confirmar', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      }),
+    confirmQuote: (id: number) =>
+      request<Quote>(`/admin/cotizaciones/${id}/confirmar`, { method: 'POST' }),
     cancelQuote: (id: number) =>
       request<Quote>(`/admin/cotizaciones/${id}/cancelar`, { method: 'POST' }),
 

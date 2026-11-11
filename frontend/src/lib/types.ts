@@ -131,29 +131,15 @@ export interface CartValidation {
   valid: boolean
 }
 
-export type SharedCartViewerRole = 'admin' | 'vendedor' | 'cliente' | 'anonimo'
-
-export interface SharedCartLine extends CartLine {
-  unit_price_cop: number | null
-  line_total_cop: number | null
-}
-
-export interface SharedCart {
-  viewer_role: SharedCartViewerRole
-  items: SharedCartLine[]
-  unavailable_items: number[]
+export interface OrderCreated {
+  id: number
+  status: QuoteStatus
   total_units: number
-  valid: boolean
-  total_cop: number | null
+  created_at: string
+  expires_at: string | null
 }
 
-export type QuoteStatus = 'confirmada' | 'cancelada'
-
-export interface SharedCartStatus {
-  confirmada: boolean
-  estado: QuoteStatus | null
-  quote_id: number | null
-}
+export type QuoteStatus = 'pendiente' | 'confirmada' | 'cancelada'
 
 export interface QuoteItem {
   id: number
@@ -170,12 +156,16 @@ export interface QuoteItem {
 export interface Quote {
   id: number
   status: QuoteStatus
+  client_name: string | null
+  client_email: string | null
   total_cop: number
   total_units: number
   created_at: string
-  cancelled_at: string | null
+  expires_at: string | null
   confirmed_by_name: string | null
+  cancelled_at: string | null
   cancelled_by_name: string | null
+  cancelled_automatically: boolean
   items: QuoteItem[]
 }
 
