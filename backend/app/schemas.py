@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -8,6 +8,7 @@ from app.models import (
     MovementType,
     NoteType,
     ProductType,
+    QuoteStatus,
     Role,
     SupplyCategory,
     SupplyUnit,
@@ -96,11 +97,137 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=4, max_length=128)
 
 
+class ClientRegisterIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
 class UserOut(ORMModel):
     id: int
     name: str
     email: EmailStr
     role: Role
+
+
+# ---------------------------------------------------------------- carrito del cliente
+
+
+class CartItemIn(BaseModel):
+    presentation_id: int = Field(gt=0)
+    quantity: int = Field(ge=1, le=99)
+
+
+class CartValidateIn(BaseModel):
+    items: list[CartItemIn] = Field(default_factory=list, max_length=100)
+
+
+class CartLineOut(BaseModel):
+    presentation_id: int
+    product_id: int
+    product_name: str
+    product_slug: str
+    brand: str | None = None
+    volume_ml: int
+    bottle_type: str | None = None
+    image_url: str | None = None
+    quantity: int
+    status: Literal["disponible", "insuficiente", "no_disponible"]
+    can_increase: bool
+
+
+class CartValidationOut(BaseModel):
+    items: list[CartLineOut]
+    unavailable_items: list[int]
+    total_units: int
+    valid: bool
+
+
+class SharedCartLineOut(CartLineOut):
+    unit_price_cop: int | None = None
+    line_total_cop: int | None = None
+
+
+class SharedCartOut(BaseModel):
+    viewer_role: Literal["admin", "vendedor", "cliente", "anonimo"]
+    items: list[SharedCartLineOut]
+    unavailable_items: list[int]
+    total_units: int
+    valid: bool
+    total_cop: int | None = None
+
+
+class SharedCartStatusOut(BaseModel):
+    confirmada: bool
+    estado: QuoteStatus | None = None
+    quote_id: int | None = None
+
+
+# ---------------------------------------------------------------- cotizaciones
+
+
+class QuoteCreateIn(BaseModel):
+    token: str = Field(min_length=1, max_length=10_000)
+
+
+class QuoteItemOut(BaseModel):
+    id: int
+    presentation_id: int | None = None
+    product_name: str
+    product_slug: str
+    volume_ml: int
+    bottle_type: str | None = None
+    unit_price_cop: int
+    quantity: int
+    line_total_cop: int
+
+
+class QuoteOut(BaseModel):
+    id: int
+    status: QuoteStatus
+    total_cop: int
+    total_units: int
+    created_at: datetime
+    cancelled_at: datetime | None = None
+    confirmed_by_name: str | None = None
+    cancelled_by_name: str | None = None
+    items: list[QuoteItemOut] = Field(default_factory=list)
+
+
+class PaginatedQuotes(BaseModel):
+    items: list[QuoteOut]
+    total: int
+    page: int
+    pages: int
+    page_size: int
+
+
+# ---------------------------------------------------------------- usuarios
+
+
+class AdminUserOut(ORMModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: Role
+    active: bool
+    created_at: datetime
+
+
+class AdminUserCreateIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    role: Role = Role.vendedor
+    active: bool = True
+
+
+class AdminUserUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    role: Role | None = None
+    active: bool | None = None
 
 
 # ---------------------------------------------------------------- administración

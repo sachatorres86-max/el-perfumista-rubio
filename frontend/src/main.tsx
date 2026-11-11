@@ -13,6 +13,7 @@ import '@fontsource/cormorant-garamond/700.css'
 import './index.css'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
+import { CartProvider } from './context/CartContext'
 import { SiteConfigProvider } from './context/SiteConfigContext'
 import { ToastProvider } from './components/Toast'
 
@@ -32,9 +33,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <ToastProvider>
           <AuthProvider>
-            <SiteConfigProvider>
-              <App />
-            </SiteConfigProvider>
+            <CartProvider>
+              <SiteConfigProvider>
+                <App />
+              </SiteConfigProvider>
+            </CartProvider>
           </AuthProvider>
         </ToastProvider>
       </BrowserRouter>

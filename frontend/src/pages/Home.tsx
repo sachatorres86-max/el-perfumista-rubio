@@ -102,19 +102,21 @@ export function Home() {
 
             <form
               onSubmit={onSearch}
-              className="mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-white/10 p-1.5 backdrop-blur-md"
+              className="mt-8 flex max-w-xl flex-col gap-2 rounded-2xl border border-white/15 bg-white/10 p-1.5 backdrop-blur-md sm:flex-row sm:items-center sm:rounded-full"
             >
-              <Search className="ml-3 h-5 w-5 shrink-0 text-brand-300" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Busca por nombre, familia o nota…"
-                className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none"
-                aria-label="Buscar productos"
-              />
+              <div className="flex min-w-0 flex-1 items-center">
+                <Search className="ml-3 h-5 w-5 shrink-0 text-brand-300" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Busca por nombre, familia o nota…"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none"
+                  aria-label="Buscar productos"
+                />
+              </div>
               <button
                 type="submit"
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-brand-500 px-5 text-sm font-bold text-ink transition hover:bg-brand-400"
+                className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-brand-500 px-5 text-sm font-bold text-ink transition hover:bg-brand-400 sm:w-auto"
               >
                 Buscar
                 <ArrowRight className="h-4 w-4" />
@@ -438,7 +440,7 @@ export function Home() {
               href={config.instagram_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-ink transition hover:bg-brand-50"
+              className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-white px-4 text-xs font-bold text-ink transition hover:bg-brand-50 sm:w-auto sm:px-6 sm:text-sm"
             >
               <Instagram className="h-4 w-4" />
               @elperfumistarubio.2023

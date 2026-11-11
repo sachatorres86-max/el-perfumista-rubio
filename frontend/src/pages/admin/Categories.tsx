@@ -139,7 +139,7 @@ export function Categories() {
         }
       />
 
-      <div className="mb-5 inline-flex rounded-full border border-sand-200 bg-white p-1">
+      <div className="mb-5 grid w-full grid-cols-2 rounded-full border border-sand-200 bg-white p-1 sm:inline-flex sm:w-auto">
         {(
           [
             { value: 'familias', label: 'Familias olfativas', count: families.length },
@@ -151,7 +151,7 @@ export function Categories() {
             type="button"
             onClick={() => setTab(item.value)}
             className={cn(
-              'rounded-full px-4 py-2 text-sm font-semibold transition',
+              'rounded-full px-2 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm',
               tab === item.value ? 'bg-ink text-white' : 'text-ink-muted hover:text-ink',
             )}
           >
@@ -172,8 +172,8 @@ export function Categories() {
           {families.map((family) => (
             <Card key={family.id} className="flex flex-col p-5">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xl text-ink">{family.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="break-words text-xl text-ink">{family.name}</h3>
                   <p className="text-[11px] text-ink-muted">/{family.slug}</p>
                 </div>
                 <Badge tone="brand">
@@ -207,9 +207,9 @@ export function Categories() {
             {notes.map((note) => (
               <div
                 key={note.id}
-                className="group inline-flex items-center gap-1.5 rounded-full border border-sand-200 bg-sand-50 py-1.5 pl-3 pr-1.5"
+                className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-sand-200 bg-sand-50 py-1.5 pl-3 pr-1.5"
               >
-                <span className="text-sm font-medium text-ink">{note.name}</span>
+                <span className="break-words text-sm font-medium text-ink">{note.name}</span>
                 <span className="text-[10px] text-ink-muted">{note.usage_count ?? 0}</span>
                 <button
                   type="button"

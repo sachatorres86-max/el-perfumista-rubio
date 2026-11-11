@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
   Boxes,
+  ClipboardList,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
   Settings as SettingsIcon,
   Tags,
+  UserCog,
   X,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -22,7 +24,9 @@ const NAV = [
   { to: '/admin/insumos', label: 'Insumos', icon: Boxes },
   { to: '/admin/inventario', label: 'Inventario', icon: BarChart3 },
   { to: '/admin/categorias', label: 'Catálogo', icon: Tags },
+  { to: '/admin/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+  { to: '/admin/usuarios', label: 'Usuarios', icon: UserCog },
   { to: '/admin/configuracion', label: 'Configuración', icon: SettingsIcon },
 ]
 
@@ -42,6 +46,16 @@ export function AdminLayout() {
     }
   }, [loading, user, navigate])
 
+  useEffect(() => {
+    if (
+      user?.role === 'vendedor' &&
+      (location.pathname.startsWith('/admin/configuracion') ||
+        location.pathname.startsWith('/admin/usuarios'))
+    ) {
+      navigate('/admin', { replace: true })
+    }
+  }, [user, location.pathname, navigate])
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-sand-50">
@@ -51,6 +65,16 @@ export function AdminLayout() {
   }
 
   if (!user) return null
+  if (user.role === 'cliente') {
+    return <Navigate to="/cuenta/ingresar" replace />
+  }
+
+  const isAdmin = user.role === 'admin'
+  const navItems = isAdmin
+    ? NAV
+    : NAV.filter(
+        (item) => item.to !== '/admin/configuracion' && item.to !== '/admin/usuarios',
+      )
 
   const handleLogout = async () => {
     await logout()
@@ -88,7 +112,7 @@ export function AdminLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -160,7 +184,7 @@ export function AdminLayout() {
             </p>
           </div>
           <span className="hidden rounded-full bg-brand-50 px-3 py-1.5 text-[11px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 sm:inline-flex">
-            {user.role === 'admin' ? 'Administrador' : 'Vendedor'}
+            {isAdmin ? 'Administrador' : 'Vendedor'}
           </span>
         </header>
 

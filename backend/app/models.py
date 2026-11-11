@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import text
 
 from app.core.database import Base
 
@@ -22,6 +24,7 @@ from app.core.database import Base
 class Role(str, enum.Enum):
     admin = "admin"
     vendedor = "vendedor"
+    cliente = "cliente"
 
 
 class ProductType(str, enum.Enum):
@@ -62,6 +65,11 @@ class MovementType(str, enum.Enum):
 class ItemType(str, enum.Enum):
     presentacion = "presentacion"
     insumo = "insumo"
+
+
+class QuoteStatus(str, enum.Enum):
+    confirmada = "confirmada"
+    cancelada = "cancelada"
 
 
 def _enum(enum_cls: type[enum.Enum], length: int = 32) -> Enum:
@@ -232,6 +240,66 @@ class InventoryMovement(Base):
     presentation: Mapped[Presentation | None] = relationship()
     supply: Mapped[Supply | None] = relationship(back_populates="movements")
     user: Mapped[User | None] = relationship(back_populates="movements")
+
+
+class Quote(Base):
+    __tablename__ = "cotizaciones"
+    __table_args__ = (
+        Index(
+            "uq_cotizaciones_token_activo",
+            "source_token_hash",
+            unique=True,
+            postgresql_where=text("status = 'confirmada'"),
+            sqlite_where=text("status = 'confirmada'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_token_hash: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[QuoteStatus] = mapped_column(
+        _enum(QuoteStatus, 20), default=QuoteStatus.confirmada, index=True
+    )
+    total_cop: Mapped[int] = mapped_column(Integer, default=0)
+    total_units: Mapped[int] = mapped_column(Integer, default=0)
+    confirmed_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL")
+    )
+    cancelled_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    items: Mapped[list[QuoteItem]] = relationship(
+        back_populates="quote",
+        cascade="all, delete-orphan",
+        order_by="QuoteItem.id",
+    )
+    confirmed_by: Mapped[User | None] = relationship(foreign_keys=[confirmed_by_id])
+    cancelled_by: Mapped[User | None] = relationship(foreign_keys=[cancelled_by_id])
+
+
+class QuoteItem(Base):
+    __tablename__ = "cotizacion_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    quote_id: Mapped[int] = mapped_column(
+        ForeignKey("cotizaciones.id", ondelete="CASCADE"), index=True
+    )
+    presentation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("presentaciones.id", ondelete="SET NULL"), index=True
+    )
+    product_name: Mapped[str] = mapped_column(String(160))
+    product_slug: Mapped[str] = mapped_column(String(180))
+    volume_ml: Mapped[int] = mapped_column(Integer)
+    bottle_type: Mapped[str | None] = mapped_column(String(120))
+    unit_price_cop: Mapped[int] = mapped_column(Integer)
+    quantity: Mapped[int] = mapped_column(Integer)
+
+    quote: Mapped[Quote] = relationship(back_populates="items")
+    presentation: Mapped[Presentation | None] = relationship()
 
 
 class Setting(Base):

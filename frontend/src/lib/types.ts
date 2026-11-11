@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'vendedor'
+export type Role = 'admin' | 'vendedor' | 'cliente'
 
 export type ProductType =
   | 'contratipo'
@@ -95,6 +95,105 @@ export interface User {
   name: string
   email: string
   role: Role
+}
+
+export interface ClientRegisterInput {
+  name: string
+  email: string
+  password: string
+}
+
+export interface CartItem {
+  presentationId: number
+  quantity: number
+}
+
+export type CartLineStatus = 'disponible' | 'insuficiente' | 'no_disponible'
+
+export interface CartLine {
+  presentation_id: number
+  product_id: number
+  product_name: string
+  product_slug: string
+  brand: string | null
+  volume_ml: number
+  bottle_type: string | null
+  image_url: string | null
+  quantity: number
+  status: CartLineStatus
+  can_increase: boolean
+}
+
+export interface CartValidation {
+  items: CartLine[]
+  unavailable_items: number[]
+  total_units: number
+  valid: boolean
+}
+
+export type SharedCartViewerRole = 'admin' | 'vendedor' | 'cliente' | 'anonimo'
+
+export interface SharedCartLine extends CartLine {
+  unit_price_cop: number | null
+  line_total_cop: number | null
+}
+
+export interface SharedCart {
+  viewer_role: SharedCartViewerRole
+  items: SharedCartLine[]
+  unavailable_items: number[]
+  total_units: number
+  valid: boolean
+  total_cop: number | null
+}
+
+export type QuoteStatus = 'confirmada' | 'cancelada'
+
+export interface SharedCartStatus {
+  confirmada: boolean
+  estado: QuoteStatus | null
+  quote_id: number | null
+}
+
+export interface QuoteItem {
+  id: number
+  presentation_id: number | null
+  product_name: string
+  product_slug: string
+  volume_ml: number
+  bottle_type: string | null
+  unit_price_cop: number
+  quantity: number
+  line_total_cop: number
+}
+
+export interface Quote {
+  id: number
+  status: QuoteStatus
+  total_cop: number
+  total_units: number
+  created_at: string
+  cancelled_at: string | null
+  confirmed_by_name: string | null
+  cancelled_by_name: string | null
+  items: QuoteItem[]
+}
+
+export interface AdminUser {
+  id: number
+  name: string
+  email: string
+  role: Role
+  active: boolean
+  created_at: string
+}
+
+export interface AdminUserInput {
+  name?: string
+  email?: string
+  password?: string
+  role?: Role
+  active?: boolean
 }
 
 export interface PresentationAdmin {
@@ -199,7 +298,24 @@ export interface PresentationOption {
   volume_ml: number
 }
 
+export type ReportPeriod = 'diario' | 'semanal' | 'mensual'
+
 export interface ReportSummary {
+  periodo: ReportPeriod
+  period_label: string
+  period_start: string
+  period_end: string
+  activity: {
+    movements_total: number
+    entries_units: number
+    exits_units: number
+    adjustments_total: number
+    quotes_confirmed: number
+    quotes_cancelled: number
+    quotes_total_cop: number
+    quotes_units: number
+  }
+  recent_movements: Movement[]
   low_stock_presentations: Array<{
     presentation_id: number
     product_id: number

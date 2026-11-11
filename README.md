@@ -27,6 +27,7 @@ presentaciones, insumos, stock y reportes.
 | Uso | URL |
 | --- | --- |
 | Catálogo público | <http://127.0.0.1:8000/> |
+| Cuenta de clientes | <http://127.0.0.1:8000/cuenta/registro> |
 | Panel interno | <http://127.0.0.1:8000/admin> |
 | Documentación de la API | <http://127.0.0.1:8000/docs> |
 | Salud del servicio | <http://127.0.0.1:8000/api/health> |
@@ -60,6 +61,14 @@ los hashes iniciales defectuosos que no hayan sido cambiados.
 - Página de contacto con WhatsApp, horario, Instagram y los dos locales.
 - **Nunca muestra precios**: solo `Disponible` / `Agotado` y el botón de
   consulta por WhatsApp.
+- **Cuenta de cliente:** registro e inicio de sesión desde `/cuenta/registro`
+  y `/cuenta/ingresar`.
+- **Carrito de cliente:** se guarda en el navegador por usuario y se valida
+  contra la disponibilidad vigente en `/carrito`.
+- **Cotización compartida:** el carrito genera un enlace `/cotizacion/<token>`
+  para enviar por WhatsApp. El personal ve precios, total de referencia y puede
+  confirmar la venta descontando stock; clientes y visitantes ven la selección
+  sin precios y el aviso “Tu vendedor revisará tu compra”.
 - Diseño adaptable (móvil, tableta y escritorio) e instalable como PWA.
 
 ### Panel interno
@@ -71,16 +80,28 @@ los hashes iniciales defectuosos que no hayan sido cambiados.
   unitario y stock mínimo.
 - **Inventario:** historial de entradas, salidas y ajustes para productos
   terminados e insumos, con usuario y motivo.
+- **Cotizaciones:** historial de cotizaciones confirmadas y canceladas. Al
+  confirmar se descuenta el stock y el carrito local del cliente se vacía al
+  detectar la confirmación. Al cancelar se devuelve el stock automáticamente.
 - **Catálogo:** familias olfativas y notas.
-- **Reportes:** alertas de stock, valor del inventario, actualización masiva de
-  precios y exportación CSV (inventario, agotados, stock bajo).
+- **Reportes:** actividad diaria, semanal o mensual (movimientos, salidas y
+  cotizaciones), alertas de stock, valor del inventario y exportación PDF de
+  inventario, agotados, stock bajo, movimientos y cotizaciones.
+- **Usuarios:** creación de vendedores, edición de datos y estado, y filtros por
+  nombre, correo, rol y estado (solo administradores). Solo existe una cuenta
+  administradora; su rol no se puede cambiar y solo cada usuario puede cambiar su
+  propia contraseña.
 - **Configuración:** datos de contacto, horarios, locales y textos de inicio
   (solo administradores).
 
 ### Roles
-- **Administrador:** todo el sistema.
-- **Vendedor:** catálogo, productos, insumos, inventario y reportes. No puede
-  cambiar la configuración ni crear/eliminar familias y notas.
+- **Administrador:** cuenta única con acceso a todo el sistema, incluidas cuentas
+  de usuarios y configuración.
+- **Vendedor:** catálogo, productos, insumos, inventario, reportes y
+  cotizaciones (confirmar y cancelar). No puede administrar usuarios, cambiar la
+  configuración ni crear/eliminar familias y notas.
+- **Cliente:** cuenta propia creada desde el sitio público. No accede al panel
+  interno ni a sus endpoints.
 
 ---
 
@@ -103,7 +124,7 @@ el-perfumista-rubio/
 │  │  ├─ seed.py             Datos demo idempotentes
 │  │  ├─ core/               Configuración, BD, seguridad, utilidades
 │  │  ├─ routers/            Endpoints públicos y de administración
-│  │  └─ services/           Serializadores
+│  │  └─ services/           Serializadores y lógica del carrito
 │  ├─ media/products/        Imágenes de productos (WebP)
 │  ├─ scripts/               Generador de imágenes de ejemplo
 │  └─ tests/                 Pruebas automatizadas (pytest)
@@ -167,7 +188,11 @@ PostgreSQL deben existir y ser accesibles con `DATABASE_URL`; la aplicación no
 crea el servidor, el usuario ni la base de datos. La inicialización no reemplaza
 datos existentes. `create_all` crea tablas ausentes, pero no migra ni modifica
 tablas existentes cuando cambia el modelo; para esos cambios se requiere una
-migración planificada.
+migración planificada. En una base PostgreSQL ya inicializada, ejecuta
+`supabase_migration_quotes.sql` en el SQL Editor para crear las tablas
+`cotizaciones` y `cotizacion_items`, sus índices y habilitar el rol `cliente`.
+No reejecutes `supabase_schema_and_seed.sql` sobre una base con datos: su seed
+de productos no es idempotente.
 
 ---
 
@@ -195,6 +220,11 @@ reservados en una URL, codifícalos para URL en `DATABASE_URL`.
 
 Los datos de contacto, horarios y textos también se editan desde
 **Panel → Configuración**, sin tocar archivos.
+
+Las cotizaciones guardan un hash SHA-256 del enlace (nunca el token completo),
+un snapshot de producto, precio y cantidad, y el usuario que confirma o
+cancela. Una cotización activa por enlace se garantiza con un índice único
+parcial; después de cancelarla, el mismo enlace puede confirmarse de nuevo.
 
 ---
 

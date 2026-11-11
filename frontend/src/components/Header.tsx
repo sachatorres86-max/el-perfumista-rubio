@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Instagram, Menu, MessageCircle, X } from 'lucide-react'
+import { Instagram, Menu, MessageCircle, ShoppingBag, X } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { useSiteConfig } from '../context/SiteConfigContext'
 import { whatsappLink } from '../lib/format'
 import { cn } from '../lib/cn'
@@ -10,10 +12,13 @@ const NAV = [
   { to: '/catalogo', label: 'Catálogo' },
   { to: '/#nosotros', label: 'Nosotros' },
   { to: '/contacto', label: 'Contacto' },
+  { to: '/cuenta/ingresar', label: 'Mi cuenta' },
 ]
 
 export function Header() {
   const { config } = useSiteConfig()
+  const { user } = useAuth()
+  const { totalUnits } = useCart()
   const [open, setOpen] = useState(false)
   const location = useLocation()
 
@@ -37,15 +42,19 @@ export function Header() {
 
       <div className="glass border-b border-sand-200/80">
         <div className="container-page flex h-[72px] items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-3" aria-label="El Perfumista Rubio, inicio">
-            <span className="relative h-12 w-12 overflow-hidden rounded-full ring-2 ring-brand-400/40">
+          <Link
+            to="/"
+            className="flex min-w-0 items-center gap-2.5 sm:gap-3"
+            aria-label="El Perfumista Rubio, inicio"
+          >
+            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-brand-400/40 sm:h-12 sm:w-12">
               <img src="/logo.png" alt="Logo de El Perfumista Rubio" className="h-full w-full object-cover" />
             </span>
-            <span className="leading-none">
-              <span className="block font-display text-xl font-semibold tracking-tight text-ink">
+            <span className="min-w-0 leading-none">
+              <span className="block truncate font-display text-lg font-semibold tracking-tight text-ink sm:text-xl">
                 El Perfumista
               </span>
-              <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.28em] text-brand-700">
+              <span className="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-brand-700 sm:block">
                 Rubio · Perfumería
               </span>
             </span>
@@ -71,7 +80,21 @@ export function Header() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            {user?.role === 'cliente' && (
+              <Link
+                to="/carrito"
+                aria-label={`Mi carrito, ${totalUnits} unidades`}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-sand-300 text-ink transition hover:border-brand-400 hover:bg-sand-100 hover:text-brand-700"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                {totalUnits > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
+                    {totalUnits > 99 ? '99+' : totalUnits}
+                  </span>
+                )}
+              </Link>
+            )}
             <a
               href={whatsapp}
               target="_blank"
@@ -96,7 +119,7 @@ export function Header() {
 
       {open && (
         <div className="border-b border-sand-200 bg-white shadow-xl lg:hidden">
-          <nav className="container-page flex flex-col gap-1 py-4">
+          <nav className="container-page flex max-h-[calc(100dvh-100px)] flex-col gap-1 overflow-y-auto py-4">
             {NAV.map((item) => (
               <NavLink
                 key={item.to}
@@ -112,6 +135,20 @@ export function Header() {
                 {item.label}
               </NavLink>
             ))}
+            {user?.role === 'cliente' && (
+              <Link
+                to="/carrito"
+                className="flex items-center justify-between rounded-xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-brand-700" />
+                  Mi carrito
+                </span>
+                <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                  {totalUnits}
+                </span>
+              </Link>
+            )}
             <div className="mt-3 flex gap-2">
               <a
                 href={whatsapp}

@@ -13,10 +13,14 @@ from app.routers import (
     admin_dashboard,
     admin_inventory,
     admin_products,
+    admin_quotes,
     admin_reports,
     admin_settings,
+    admin_users,
     auth,
+    client_cart,
     public,
+    shared_cart,
 )
 from app.seed import seed_all
 
@@ -47,12 +51,16 @@ app.add_middleware(
 
 app.include_router(public.router)
 app.include_router(auth.router)
+app.include_router(client_cart.router)
+app.include_router(shared_cart.router)
 app.include_router(admin_products.router)
 app.include_router(admin_catalog.router)
 app.include_router(admin_inventory.router)
 app.include_router(admin_reports.router)
 app.include_router(admin_settings.router)
 app.include_router(admin_dashboard.router)
+app.include_router(admin_quotes.router)
+app.include_router(admin_users.router)
 
 media_root = Path(settings.media_dir).resolve()
 media_root.mkdir(parents=True, exist_ok=True)

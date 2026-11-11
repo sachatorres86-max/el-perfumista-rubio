@@ -1,4 +1,8 @@
 import type {
+  AdminUser,
+  AdminUserInput,
+  CartItem,
+  CartValidation,
   Dashboard,
   Family,
   FamilyInput,
@@ -8,6 +12,7 @@ import type {
   Note,
   NoteInput,
   Paginated,
+  ClientRegisterInput,
   PresentationOption,
   ProductAdmin,
   ProductAdminListItem,
@@ -15,7 +20,11 @@ import type {
   ProductInput,
   ProductListItem,
   PublicConfig,
+  Quote,
+  ReportPeriod,
   ReportSummary,
+  SharedCart,
+  SharedCartStatus,
   Supply,
   SupplyInput,
   User,
@@ -103,6 +112,10 @@ export const api = {
   products: (params: ProductQuery = {}) =>
     request<Paginated<ProductListItem>>(`/productos${queryString(params as Record<string, QueryValue>)}`),
   product: (slug: string) => request<ProductDetail>(`/productos/${encodeURIComponent(slug)}`),
+  sharedCart: (token: string) =>
+    request<SharedCart>(`/cotizaciones/${encodeURIComponent(token)}`),
+  sharedCartStatus: (token: string) =>
+    request<SharedCartStatus>(`/cotizaciones/${encodeURIComponent(token)}/estado`),
 
   auth: {
     login: (email: string, password: string) =>
@@ -110,8 +123,26 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       }),
+    register: (data: ClientRegisterInput) =>
+      request<User>('/auth/registro', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     logout: () => request<{ message: string }>('/auth/logout', { method: 'POST' }),
     me: () => request<User>('/auth/me'),
+  },
+
+  client: {
+    validateCart: (items: CartItem[]) =>
+      request<CartValidation>('/cliente/carrito/validar', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            presentation_id: item.presentationId,
+            quantity: item.quantity,
+          })),
+        }),
+      }),
   },
 
   admin: {
@@ -202,9 +233,36 @@ export const api = {
     deleteNote: (id: number) =>
       request<{ message: string }>(`/admin/notas/${id}`, { method: 'DELETE' }),
 
-    reportSummary: () => request<ReportSummary>('/admin/reportes/resumen'),
-    exportUrl: (tipo: 'inventario' | 'agotados' | 'stock_bajo') =>
-      `/api/admin/reportes/export?tipo=${tipo}`,
+    quotes: (params: { estado?: string; page?: number; page_size?: number } = {}) =>
+      request<Paginated<Quote>>(
+        `/admin/cotizaciones${queryString(params as Record<string, QueryValue>)}`,
+      ),
+    confirmQuote: (token: string) =>
+      request<Quote>('/admin/cotizaciones/confirmar', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
+    cancelQuote: (id: number) =>
+      request<Quote>(`/admin/cotizaciones/${id}/cancelar`, { method: 'POST' }),
+
+    users: () => request<AdminUser[]>('/admin/usuarios'),
+    createUser: (data: AdminUserInput) =>
+      request<AdminUser>('/admin/usuarios', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    updateUser: (id: number, data: AdminUserInput) =>
+      request<AdminUser>(`/admin/usuarios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+
+    reportSummary: (periodo: ReportPeriod) =>
+      request<ReportSummary>(`/admin/reportes/resumen?periodo=${periodo}`),
+    exportUrl: (
+      tipo: 'inventario' | 'agotados' | 'stock_bajo' | 'movimientos' | 'cotizaciones',
+      periodo: ReportPeriod,
+    ) => `/api/admin/reportes/export?tipo=${tipo}&periodo=${periodo}`,
 
     settings: () => request<PublicConfig>('/admin/configuracion'),
     updateSettings: (data: Partial<PublicConfig>) =>

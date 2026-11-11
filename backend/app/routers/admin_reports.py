@@ -1,17 +1,62 @@
-import csv
-import io
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.deps import require_staff
-from app.models import Presentation, Product, Supply, User
+from app.models import (
+    InventoryMovement,
+    Presentation,
+    Product,
+    Quote,
+    QuoteStatus,
+    Supply,
+    User,
+)
+from app.services.report_pdf import build_report_pdf
+from app.services.serializers import serialize_movement
 
 router = APIRouter(prefix="/api/admin/reportes", tags=["admin · reportes"])
+
+ReportPeriod = Literal["diario", "semanal", "mensual"]
+
+PERIOD_LABELS = {
+    "diario": "Hoy",
+    "semanal": "Esta semana",
+    "mensual": "Este mes",
+}
+
+REPORT_TITLES = {
+    "inventario": "Reporte de inventario",
+    "agotados": "Reporte de productos agotados",
+    "stock_bajo": "Reporte de stock bajo",
+    "movimientos": "Reporte de movimientos",
+    "cotizaciones": "Reporte de cotizaciones",
+}
+
+REPORT_COL_RATIOS = {
+    "inventario": [0.7, 1.0, 2.1, 1.0, 0.65, 0.8, 1.0, 1.1, 0.9],
+    "agotados": [0.7, 1.0, 2.4, 1.0, 0.65, 0.85, 1.0, 0.9, 0.8],
+    "stock_bajo": [0.7, 1.0, 2.3, 1.0, 0.65, 0.8, 1.0, 1.0, 0.85],
+    "movimientos": [1.25, 1.0, 2.0, 0.9, 0.7, 0.75, 1.9, 1.0],
+    "cotizaciones": [0.45, 1.15, 0.8, 0.65, 0.9, 2.0, 0.9, 0.55, 0.9, 0.9, 1.0, 1.1, 1.0],
+}
+
+
+def _period_bounds(periodo: ReportPeriod) -> tuple[datetime, datetime]:
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    if periodo == "diario":
+        start_date = today
+    elif periodo == "semanal":
+        start_date = today - timedelta(days=today.weekday())
+    else:
+        start_date = today.replace(day=1)
+    start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+    return start, now
 
 
 def _presentation_rows(db: Session, only_out: bool = False, only_low: bool = False):
@@ -28,11 +73,36 @@ def _presentation_rows(db: Session, only_out: bool = False, only_low: bool = Fal
     return db.execute(query).all()
 
 
+def _period_movements(db: Session, start: datetime, end: datetime) -> list[InventoryMovement]:
+    return list(
+        db.scalars(
+            select(InventoryMovement)
+            .where(
+                InventoryMovement.created_at >= start,
+                InventoryMovement.created_at <= end,
+            )
+            .options(
+                selectinload(InventoryMovement.presentation).selectinload(
+                    Presentation.product
+                ),
+                selectinload(InventoryMovement.supply),
+                selectinload(InventoryMovement.user),
+            )
+            .order_by(
+                InventoryMovement.created_at.desc(),
+                InventoryMovement.id.desc(),
+            )
+        ).all()
+    )
+
+
 @router.get("/resumen")
 def summary(
+    periodo: ReportPeriod = Query(...),
     db: Session = Depends(get_db),
     _: User = Depends(require_staff),
 ) -> dict:
+    start, end = _period_bounds(periodo)
     low_stock_rows = _presentation_rows(db, only_low=True)
     out_rows = _presentation_rows(db, only_out=True)
 
@@ -52,7 +122,52 @@ def summary(
         .where(Supply.active.is_(True))
     ) or 0
 
+    movements = _period_movements(db, start, end)
+    confirmed_quotes = db.scalars(
+        select(Quote).where(
+            Quote.status == QuoteStatus.confirmada,
+            Quote.created_at >= start,
+            Quote.created_at <= end,
+        )
+    ).all()
+    cancelled_quotes = db.scalars(
+        select(Quote).where(
+            Quote.status == QuoteStatus.cancelada,
+            Quote.cancelled_at >= start,
+            Quote.cancelled_at <= end,
+        )
+    ).all()
+
+    activity = {
+        "movements_total": len(movements),
+        "entries_units": sum(
+            movement.quantity
+            for movement in movements
+            if movement.movement_type.value == "entrada"
+        ),
+        "exits_units": sum(
+            movement.quantity
+            for movement in movements
+            if movement.movement_type.value == "salida"
+        ),
+        "adjustments_total": sum(
+            1 for movement in movements if movement.movement_type.value == "ajuste"
+        ),
+        "quotes_confirmed": len(confirmed_quotes),
+        "quotes_cancelled": len(cancelled_quotes),
+        "quotes_total_cop": sum(quote.total_cop for quote in confirmed_quotes),
+        "quotes_units": sum(quote.total_units for quote in confirmed_quotes),
+    }
+
     return {
+        "periodo": periodo,
+        "period_label": PERIOD_LABELS[periodo],
+        "period_start": start,
+        "period_end": end,
+        "activity": activity,
+        "recent_movements": [
+            serialize_movement(movement) for movement in movements[:10]
+        ],
         "low_stock_presentations": [
             {
                 "presentation_id": presentation.id,
@@ -99,117 +214,206 @@ def summary(
     }
 
 
-def _csv_response(rows: list[list], filename: str) -> StreamingResponse:
-    output = io.StringIO()
-    writer = csv.writer(output, delimiter=";")
-    for row in rows:
-        writer.writerow(row)
-    content = ("\ufeff" + output.getvalue()).encode("utf-8")
-    return StreamingResponse(
-        iter([content]),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
 @router.get("/export")
-def export_csv(
-    tipo: str = Query(default="inventario", pattern="^(inventario|agotados|stock_bajo)$"),
+def export_pdf(
+    tipo: str = Query(
+        default="inventario",
+        pattern="^(inventario|agotados|stock_bajo|movimientos|cotizaciones)$",
+    ),
+    periodo: ReportPeriod = Query(...),
     db: Session = Depends(get_db),
     _: User = Depends(require_staff),
-) -> StreamingResponse:
-    header = [
-        "Tipo",
-        "SKU",
-        "Nombre",
-        "Detalle",
-        "Stock",
-        "Stock mínimo",
-        "Costo unitario COP",
-        "Valor COP",
-        "Estado",
-    ]
-    rows: list[list] = [header]
+) -> Response:
+    start, end = _period_bounds(periodo)
 
-    if tipo == "inventario":
-        for presentation, product in _presentation_rows(db):
+    if tipo == "movimientos":
+        rows: list[list] = [
+            [
+                "Fecha",
+                "Tipo de artículo",
+                "Artículo",
+                "Movimiento",
+                "Cantidad",
+                "Stock final",
+                "Motivo",
+                "Usuario",
+            ]
+        ]
+        for movement in _period_movements(db, start, end):
+            item = serialize_movement(movement)
             rows.append(
                 [
-                    "Producto",
-                    product.sku,
-                    product.name,
-                    f"{presentation.volume_ml} ml",
-                    presentation.stock,
-                    presentation.min_stock,
-                    presentation.price_cop,
-                    presentation.price_cop * presentation.stock,
-                    "Agotado" if presentation.stock == 0 else "Disponible",
+                    movement.created_at.isoformat() if movement.created_at else "",
+                    "Producto" if item["item_type"].value == "presentacion" else "Insumo",
+                    item["item_label"],
+                    movement.movement_type.value,
+                    movement.quantity,
+                    movement.resulting_stock,
+                    movement.reason or "",
+                    item["user_name"] or "",
                 ]
             )
-        for supply in db.scalars(
-            select(Supply).where(Supply.active.is_(True)).order_by(Supply.name)
-        ).all():
-            rows.append(
-                [
-                    "Insumo",
-                    supply.sku,
-                    supply.name,
-                    supply.unit.value,
-                    supply.stock,
-                    supply.min_stock,
-                    supply.unit_cost_cop,
-                    supply.unit_cost_cop * supply.stock,
-                    "Stock bajo" if supply.stock <= supply.min_stock else "Disponible",
-                ]
+    elif tipo == "cotizaciones":
+        rows = [
+            [
+                "ID",
+                "Fecha",
+                "Estado",
+                "Unidades",
+                "Total COP",
+                "Producto",
+                "Presentación",
+                "Cantidad",
+                "Precio unitario COP",
+                "Subtotal COP",
+                "Confirmada por",
+                "Cancelada el",
+                "Cancelada por",
+            ]
+        ]
+        quotes = db.scalars(
+            select(Quote)
+            .where(
+                or_(
+                    Quote.created_at.between(start, end),
+                    Quote.cancelled_at.between(start, end),
+                )
             )
-    elif tipo == "agotados":
-        for presentation, product in _presentation_rows(db, only_out=True):
-            rows.append(
-                [
-                    "Producto",
-                    product.sku,
-                    product.name,
-                    f"{presentation.volume_ml} ml",
-                    0,
-                    presentation.min_stock,
-                    presentation.price_cop,
-                    0,
-                    "Agotado",
-                ]
+            .options(
+                selectinload(Quote.items),
+                selectinload(Quote.confirmed_by),
+                selectinload(Quote.cancelled_by),
             )
+            .order_by(Quote.created_at.desc(), Quote.id.desc())
+        ).all()
+        for quote in quotes:
+            for item in quote.items:
+                rows.append(
+                    [
+                        quote.id,
+                        quote.created_at.isoformat() if quote.created_at else "",
+                        quote.status.value,
+                        quote.total_units,
+                        quote.total_cop,
+                        item.product_name,
+                        f"{item.volume_ml} ml",
+                        item.quantity,
+                        item.unit_price_cop,
+                        item.unit_price_cop * item.quantity,
+                        quote.confirmed_by.name if quote.confirmed_by else "",
+                        quote.cancelled_at.isoformat() if quote.cancelled_at else "",
+                        quote.cancelled_by.name if quote.cancelled_by else "",
+                    ]
+                )
     else:
-        for presentation, product in _presentation_rows(db, only_low=True):
-            rows.append(
-                [
-                    "Producto",
-                    product.sku,
-                    product.name,
-                    f"{presentation.volume_ml} ml",
-                    presentation.stock,
-                    presentation.min_stock,
-                    presentation.price_cop,
-                    presentation.price_cop * presentation.stock,
-                    "Stock bajo",
-                ]
-            )
-        for supply in db.scalars(
-            select(Supply)
-            .where(Supply.active.is_(True), Supply.stock <= Supply.min_stock)
-            .order_by(Supply.name)
-        ).all():
-            rows.append(
-                [
-                    "Insumo",
-                    supply.sku,
-                    supply.name,
-                    supply.unit.value,
-                    supply.stock,
-                    supply.min_stock,
-                    supply.unit_cost_cop,
-                    supply.unit_cost_cop * supply.stock,
-                    "Stock bajo",
-                ]
-            )
+        rows = [
+            [
+                "Tipo",
+                "SKU",
+                "Nombre",
+                "Detalle",
+                "Stock",
+                "Stock mínimo",
+                "Costo unitario COP",
+                "Valor COP",
+                "Estado",
+            ]
+        ]
 
-    filename = f"{tipo}-{datetime.now().strftime('%Y%m%d-%H%M')}.csv"
-    return _csv_response(rows, filename)
+        if tipo == "inventario":
+            for presentation, product in _presentation_rows(db):
+                rows.append(
+                    [
+                        "Producto",
+                        product.sku,
+                        product.name,
+                        f"{presentation.volume_ml} ml",
+                        presentation.stock,
+                        presentation.min_stock,
+                        presentation.price_cop,
+                        presentation.price_cop * presentation.stock,
+                        "Agotado" if presentation.stock == 0 else "Disponible",
+                    ]
+                )
+            for supply in db.scalars(
+                select(Supply).where(Supply.active.is_(True)).order_by(Supply.name)
+            ).all():
+                rows.append(
+                    [
+                        "Insumo",
+                        supply.sku,
+                        supply.name,
+                        supply.unit.value,
+                        supply.stock,
+                        supply.min_stock,
+                        supply.unit_cost_cop,
+                        supply.unit_cost_cop * supply.stock,
+                        "Stock bajo"
+                        if supply.stock <= supply.min_stock
+                        else "Disponible",
+                    ]
+                )
+        elif tipo == "agotados":
+            for presentation, product in _presentation_rows(db, only_out=True):
+                rows.append(
+                    [
+                        "Producto",
+                        product.sku,
+                        product.name,
+                        f"{presentation.volume_ml} ml",
+                        0,
+                        presentation.min_stock,
+                        presentation.price_cop,
+                        0,
+                        "Agotado",
+                    ]
+                )
+        else:
+            for presentation, product in _presentation_rows(db, only_low=True):
+                rows.append(
+                    [
+                        "Producto",
+                        product.sku,
+                        product.name,
+                        f"{presentation.volume_ml} ml",
+                        presentation.stock,
+                        presentation.min_stock,
+                        presentation.price_cop,
+                        presentation.price_cop * presentation.stock,
+                        "Stock bajo",
+                    ]
+                )
+            for supply in db.scalars(
+                select(Supply)
+                .where(Supply.active.is_(True), Supply.stock <= Supply.min_stock)
+                .order_by(Supply.name)
+            ).all():
+                rows.append(
+                    [
+                        "Insumo",
+                        supply.sku,
+                        supply.name,
+                        supply.unit.value,
+                        supply.stock,
+                        supply.min_stock,
+                        supply.unit_cost_cop,
+                        supply.unit_cost_cop * supply.stock,
+                        "Stock bajo",
+                    ]
+                )
+
+    pdf = build_report_pdf(
+        title=REPORT_TITLES[tipo],
+        period_label=PERIOD_LABELS[periodo],
+        period_start=start,
+        period_end=end,
+        headers=rows[0],
+        rows=rows[1:],
+        col_ratios=REPORT_COL_RATIOS[tipo],
+    )
+    filename = f"reporte-{tipo}-{periodo}-{datetime.now().strftime('%Y%m%d-%H%M')}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

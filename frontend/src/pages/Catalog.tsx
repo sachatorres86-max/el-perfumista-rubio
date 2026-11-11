@@ -242,8 +242,8 @@ export function Catalog() {
                 presentación y consulta la disponibilidad.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative w-full sm:w-72">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
                 <input
                   value={search}
@@ -256,7 +256,7 @@ export function Catalog() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-sand-300 bg-white px-4 text-sm font-semibold text-ink lg:hidden"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-sand-300 bg-white px-4 text-sm font-semibold text-ink sm:w-auto lg:hidden"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filtros
@@ -402,7 +402,7 @@ export function Catalog() {
                 </div>
 
                 {data.pages > 1 && (
-                  <div className="mt-10 flex items-center justify-center gap-2">
+                  <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
                     <button
                       type="button"
                       onClick={() => updateParam('page', String(Math.max(1, page - 1)))}
@@ -411,7 +411,7 @@ export function Catalog() {
                     >
                       <ChevronLeft className="h-4 w-4" /> Anterior
                     </button>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
                       {Array.from({ length: data.pages }).map((_, index) => {
                         const number = index + 1
                         return (

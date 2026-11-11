@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -7,10 +7,13 @@ import {
   Info,
   MessageCircle,
   Share2,
+  ShoppingBag,
   Sparkles,
   XCircle,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { useSiteConfig } from '../context/SiteConfigContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import {
@@ -33,6 +36,9 @@ const NOTE_ORDER: NoteType[] = ['salida', 'corazon', 'fondo']
 export function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { config } = useSiteConfig()
+  const { user } = useAuth()
+  const { addItem } = useCart()
+  const navigate = useNavigate()
   const { toast } = useToast()
   const [activeImage, setActiveImage] = useState(0)
   const [selectedVolume, setSelectedVolume] = useState<number | null>(null)
@@ -108,6 +114,21 @@ export function ProductDetailPage() {
       ? `Hola, me interesa ${product.name} en presentación de ${selectedPresentation.volume_ml} ml. ¿Está disponible?`
       : `Hola, quisiera consultar si ${product.name} en ${selectedPresentation.volume_ml} ml estará disponible.`
     : `Hola, quisiera consultar la disponibilidad de ${product.name}.`
+
+  const handleAddToCart = () => {
+    if (!selectedPresentation?.available) return
+    if (!user) {
+      toast('Inicia sesión como cliente para agregar al carrito', 'info')
+      navigate('/cuenta/ingresar')
+      return
+    }
+    if (user.role !== 'cliente') {
+      toast('El carrito es exclusivo de las cuentas de cliente', 'info')
+      return
+    }
+    addItem(selectedPresentation.id)
+    toast(`${product.name} · ${selectedPresentation.volume_ml} ml agregado al carrito`, 'success')
+  }
 
   const share = async () => {
     try {
@@ -272,24 +293,35 @@ export function ProductDetailPage() {
               )}
             </div>
 
-            <div className="mt-7 flex flex-col gap-2 sm:flex-row">
-              <a
-                href={whatsappLink(config.whatsapp_primary, message)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-full bg-accent-600 px-6 text-sm font-bold text-white shadow-lg shadow-accent-600/25 transition hover:bg-accent-700"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Consultar por WhatsApp
-              </a>
+            <div className="mt-7 space-y-2">
               <button
                 type="button"
-                onClick={share}
-                className="inline-flex h-13 items-center justify-center gap-2 rounded-full border border-sand-300 px-5 text-sm font-semibold text-ink transition hover:border-brand-400 hover:text-brand-700"
+                onClick={handleAddToCart}
+                disabled={!selectedPresentation?.available}
+                className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-ink px-6 text-sm font-bold text-white transition hover:bg-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Share2 className="h-4 w-4" />
-                Compartir
+                <ShoppingBag className="h-4 w-4" />
+                Agregar al carrito
               </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <a
+                  href={whatsappLink(config.whatsapp_primary, message)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent-600 px-6 text-sm font-bold text-white shadow-lg shadow-accent-600/25 transition hover:bg-accent-700 sm:flex-1"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Consultar por WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={share}
+                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full border border-sand-300 px-5 text-sm font-semibold text-ink transition hover:border-brand-400 hover:text-brand-700 sm:w-auto"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Compartir
+                </button>
+              </div>
             </div>
 
             <p className="mt-4 flex items-start gap-2 text-xs text-ink-muted">

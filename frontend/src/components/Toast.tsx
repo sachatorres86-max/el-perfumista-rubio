@@ -39,7 +39,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+      <div className="pointer-events-none fixed left-4 right-4 top-4 z-[100] mx-auto flex max-w-sm flex-col gap-2 sm:left-auto sm:right-4 sm:mx-0 sm:w-full">
         {items.map((item) => {
           const Icon =
             item.type === 'success' ? CheckCircle2 : item.type === 'error' ? AlertCircle : Info

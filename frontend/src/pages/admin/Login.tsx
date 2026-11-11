@@ -25,7 +25,7 @@ export function Login() {
   }
 
   if (user) {
-    return <Navigate to="/admin" replace />
+    return <Navigate to={user.role === 'cliente' ? '/cuenta/ingresar' : '/admin'} replace />
   }
 
   const onSubmit = async (event: FormEvent) => {
@@ -34,6 +34,11 @@ export function Login() {
     setSubmitting(true)
     try {
       const current = await login(email.trim(), password)
+      if (current.role === 'cliente') {
+        toast('Esta cuenta es de cliente. Usa el acceso de clientes.', 'info')
+        navigate('/cuenta/ingresar', { replace: true })
+        return
+      }
       toast(`Bienvenido, ${current.name}`)
       navigate('/admin', { replace: true })
     } catch (err) {

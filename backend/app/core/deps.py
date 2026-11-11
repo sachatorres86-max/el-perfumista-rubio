@@ -7,6 +7,7 @@ from app.core.security import decode_access_token
 from app.models import Role, User
 
 COOKIE_NAME = "perfumista_session"
+STAFF_ROLES = {Role.admin, Role.vendedor}
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -26,7 +27,23 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    """Devuelve el usuario autenticado o ``None`` sin exigir sesión."""
+    try:
+        return get_current_user(request, db)
+    except HTTPException:
+        return None
+
+
 def require_staff(user: User = Depends(get_current_user)) -> User:
+    if user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere acceso de personal")
+    return user
+
+
+def require_cliente(user: User = Depends(get_current_user)) -> User:
+    if user.role != Role.cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere una cuenta de cliente")
     return user
 
 

@@ -14,11 +14,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
   email VARCHAR(180) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'vendedor'
-    CHECK (role IN ('admin', 'vendedor')),
+    CONSTRAINT usuarios_role_check CHECK (role IN ('admin', 'vendedor', 'cliente')),
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_usuarios_email ON usuarios (email);
+
+-- Migración para bases creadas antes del registro de clientes:
+-- reemplaza la restricción que solo permitía admin y vendedor.
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_role_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_role_check
+  CHECK (role IN ('admin', 'vendedor', 'cliente'));
 
 -- Familias olfativas
 CREATE TABLE IF NOT EXISTS familias_olfativas (
@@ -142,6 +148,40 @@ CREATE INDEX IF NOT EXISTS ix_movimientos_item_type ON movimientos_inventario (i
 CREATE INDEX IF NOT EXISTS ix_movimientos_presentation ON movimientos_inventario (presentation_id);
 CREATE INDEX IF NOT EXISTS ix_movimientos_supply ON movimientos_inventario (supply_id);
 CREATE INDEX IF NOT EXISTS ix_movimientos_created ON movimientos_inventario (created_at);
+
+-- Cotizaciones confirmadas desde enlaces de carrito compartido
+CREATE TABLE IF NOT EXISTS cotizaciones (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  source_token_hash VARCHAR(64) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'confirmada'
+    CHECK (status IN ('confirmada', 'cancelada')),
+  total_cop INTEGER NOT NULL DEFAULT 0,
+  total_units INTEGER NOT NULL DEFAULT 0,
+  confirmed_by_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+  cancelled_by_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  cancelled_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS ix_cotizaciones_token ON cotizaciones (source_token_hash);
+CREATE INDEX IF NOT EXISTS ix_cotizaciones_status ON cotizaciones (status);
+CREATE INDEX IF NOT EXISTS ix_cotizaciones_created ON cotizaciones (created_at);
+-- Una cotización activa por enlace; tras cancelarla se puede confirmar de nuevo.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cotizaciones_token_activo
+  ON cotizaciones (source_token_hash) WHERE status = 'confirmada';
+
+CREATE TABLE IF NOT EXISTS cotizacion_items (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  quote_id BIGINT NOT NULL REFERENCES cotizaciones(id) ON DELETE CASCADE,
+  presentation_id BIGINT REFERENCES presentaciones(id) ON DELETE SET NULL,
+  product_name VARCHAR(160) NOT NULL,
+  product_slug VARCHAR(180) NOT NULL,
+  volume_ml INTEGER NOT NULL,
+  bottle_type VARCHAR(120),
+  unit_price_cop INTEGER NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0)
+);
+CREATE INDEX IF NOT EXISTS ix_cotizacion_items_quote ON cotizacion_items (quote_id);
+CREATE INDEX IF NOT EXISTS ix_cotizacion_items_presentation ON cotizacion_items (presentation_id);
 
 -- Configuración
 CREATE TABLE IF NOT EXISTS configuracion (

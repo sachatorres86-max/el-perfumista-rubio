@@ -97,3 +97,53 @@ def test_seller_credentials_work(client: TestClient) -> None:
 def test_protected_endpoint_without_session(client: TestClient) -> None:
     assert client.get("/api/admin/productos").status_code == 401
     assert client.get("/api/admin/dashboard").status_code == 401
+
+
+def test_register_creates_client_with_session(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/registro",
+        json={"name": "María Cliente", "email": "Maria@Correo.com", "password": "Cliente2026!"},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["name"] == "María Cliente"
+    assert body["email"] == "maria@correo.com"
+    assert body["role"] == "cliente"
+    assert "password" not in body
+    assert "perfumista_session" in response.cookies
+
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["role"] == "cliente"
+
+
+def test_register_rejects_duplicate_email(client: TestClient) -> None:
+    payload = {"name": "Cliente Uno", "email": "cliente@correo.com", "password": "Cliente2026!"}
+    assert client.post("/api/auth/registro", json=payload).status_code == 201
+
+    response = client.post(
+        "/api/auth/registro",
+        json={**payload, "email": "CLIENTE@correo.com"},
+    )
+    assert response.status_code == 409
+
+
+def test_register_rejects_short_password(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/registro",
+        json={"name": "Cliente", "email": "cliente@correo.com", "password": "corta"},
+    )
+    assert response.status_code == 422
+
+
+def test_client_cannot_access_staff_endpoints(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/registro",
+        json={"name": "Cliente", "email": "cliente@correo.com", "password": "Cliente2026!"},
+    )
+    assert response.status_code == 201
+
+    assert client.get("/api/admin/dashboard").status_code == 403
+    assert client.get("/api/admin/productos").status_code == 403
+    assert client.get("/api/admin/configuracion").status_code == 403
+    assert client.get("/api/admin/reportes/resumen").status_code == 403

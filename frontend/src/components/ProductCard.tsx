@@ -37,7 +37,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           </span>
         </div>
 
-        <h3 className="mt-2 text-2xl leading-tight text-ink">{product.name}</h3>
+        <h3 className="mt-2 break-words text-2xl leading-tight text-ink">{product.name}</h3>
         {product.brand && <p className="mt-1 text-xs text-ink-muted">{product.brand}</p>}
 
         {product.short_description && (

@@ -9,6 +9,16 @@ const ProductDetailPage = lazy(() =>
   import('./pages/ProductDetail').then((module) => ({ default: module.ProductDetailPage })),
 )
 const Contact = lazy(() => import('./pages/Contact').then((module) => ({ default: module.Contact })))
+const ClientLogin = lazy(() =>
+  import('./pages/ClientAuth').then((module) => ({ default: module.ClientLogin })),
+)
+const ClientRegister = lazy(() =>
+  import('./pages/ClientAuth').then((module) => ({ default: module.ClientRegister })),
+)
+const Cart = lazy(() => import('./pages/Cart').then((module) => ({ default: module.Cart })))
+const SharedCart = lazy(() =>
+  import('./pages/SharedCart').then((module) => ({ default: module.SharedCart })),
+)
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })))
 
 const AdminLayout = lazy(() =>
@@ -36,6 +46,12 @@ const Categories = lazy(() =>
 const Reports = lazy(() =>
   import('./pages/admin/Reports').then((module) => ({ default: module.Reports })),
 )
+const Quotes = lazy(() =>
+  import('./pages/admin/Quotes').then((module) => ({ default: module.Quotes })),
+)
+const Users = lazy(() =>
+  import('./pages/admin/Users').then((module) => ({ default: module.Users })),
+)
 const Settings = lazy(() =>
   import('./pages/admin/Settings').then((module) => ({ default: module.Settings })),
 )
@@ -49,6 +65,10 @@ export default function App() {
           <Route path="catalogo" element={<Catalog />} />
           <Route path="producto/:slug" element={<ProductDetailPage />} />
           <Route path="contacto" element={<Contact />} />
+          <Route path="cuenta/ingresar" element={<ClientLogin />} />
+          <Route path="cuenta/registro" element={<ClientRegister />} />
+          <Route path="carrito" element={<Cart />} />
+          <Route path="cotizacion/:token" element={<SharedCart />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -61,7 +81,9 @@ export default function App() {
           <Route path="insumos" element={<Supplies />} />
           <Route path="inventario" element={<Inventory />} />
           <Route path="categorias" element={<Categories />} />
+          <Route path="cotizaciones" element={<Quotes />} />
           <Route path="reportes" element={<Reports />} />
+          <Route path="usuarios" element={<Users />} />
           <Route path="configuracion" element={<Settings />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
