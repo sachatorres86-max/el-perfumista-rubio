@@ -35,11 +35,16 @@ export function Reports() {
     queryFn: () => api.admin.reportSummary(periodo),
   })
 
-  const download = (
+  const download = async (
     tipo: 'inventario' | 'agotados' | 'stock_bajo' | 'movimientos' | 'cotizaciones',
   ) => {
-    window.location.href = api.admin.exportUrl(tipo, periodo)
     toast('Generando reporte PDF…', 'info')
+    try {
+      await api.admin.exportPdf(tipo, periodo)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al exportar el reporte'
+      toast(message, 'error')
+    }
   }
 
   return (

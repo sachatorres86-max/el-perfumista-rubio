@@ -261,10 +261,32 @@ export const api = {
 
     reportSummary: (periodo: ReportPeriod) =>
       request<ReportSummary>(`/admin/reportes/resumen?periodo=${periodo}`),
-    exportUrl: (
+    exportPdf: async (
       tipo: 'inventario' | 'agotados' | 'stock_bajo' | 'movimientos' | 'cotizaciones',
       periodo: ReportPeriod,
-    ) => `/api/admin/reportes/export?tipo=${tipo}&periodo=${periodo}`,
+    ): Promise<void> => {
+      const url = API_BASE
+        ? `${API_BASE}/api/admin/reportes/export?tipo=${tipo}&periodo=${periodo}`
+        : `/api/admin/reportes/export?tipo=${tipo}&periodo=${periodo}`
+      const response = await fetch(url, { credentials: 'include' })
+      if (!response.ok) {
+        let detail = 'Error al generar el reporte'
+        try {
+          const data = await response.json()
+          if (typeof data.detail === 'string') detail = data.detail
+        } catch { /* noop */ }
+        throw new ApiError(detail, response.status)
+      }
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = `reporte-${tipo}-${periodo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objectUrl)
+    },
 
     settings: () => request<PublicConfig>('/admin/configuracion'),
     updateSettings: (data: Partial<PublicConfig>) =>
